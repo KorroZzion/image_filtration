@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -18,57 +19,23 @@
 namespace fs = std::filesystem;
 
 // ============================================================
-// ARTICLE-BASED 3D CANNY + MOTION-TOLERANT 3D TRACKING + TAYLOR
+// CT EDGE-DETECTOR COMPARISON
 // ============================================================
+// This diagnostic program deliberately compares ONLY the detection stage:
 //
-// Scientific basis:
-//   F. Pirillo, H. Shao, S. Petro, G. Moroni (2024),
-//   "A Surface Determination Technique for Dimensional and
-//    Geometrical Analysis in Industrial X-ray Computed Tomography"
+//   1) ordinary/global-threshold 3D Canny;
+//   2) adaptive/noise-aware 3D Canny;
+//   3) noise-compensated phase congruency (2D Log-Gabor per slice)
+//      followed by 3D hysteresis through the same slice stack.
 //
-// The paper's core pipeline is preserved:
-//   1) Gaussian smoothing of the XCT volume;
-//   2) gradient computation in x/y/z;
-//   3) non-maximum suppression along the 3D gradient direction;
-//   4) Canny-style edge tracking by hysteresis;
-//   5) subvoxel refinement along the normalized gradient using
-//      the third-order Taylor model
-//          t* = -D_g^2 f / D_g^3 f.
-//
-// Engineering additions in this version (NOT claimed as part of
-// Pirillo et al. itself):
-//   A) local 3D gradient-orientation coherence computed from a
-//      structure-tensor-like 3x3x3 neighbourhood;
-//   B) grey-value contrast measured across the candidate normal;
-//   C) support from neighbouring Z slices using predicted surface
-//      motion and normal agreement;
-//   D) a composite surface score used for hysteresis thresholds;
-//   E) normal-compatible 3D hysteresis to avoid following unrelated
-//      texture/ray artefacts;
-//   F) persistent internal-surface seeds: hole walls may seed hysteresis
-//      from strong Z-persistence even when they are weaker than the outer
-//      boundary in the global score distribution;
-//   G) evidence-guided short-gap bridging over EXISTING 3D-NMS points;
-//   H) a very broad intensity ROI is used as a computational/spatial
-//      support mask. It is filled and strongly dilated, so it does not
-//      define the boundary; it only prevents spending most of the runtime
-//      on remote reconstruction streaks;
-//   I) topology-preserving subvoxel fallback when Taylor is numerically
-//      unstable at an otherwise accepted surface point;
-//   J) V4 motion-tolerant Z tracking: inner walls are matched recursively
-//      from slice to slice, allowing the contour to drift in X/Y;
-//   K) V4 motion-aware hysteresis: cross-slice edge tracking follows the
-//      predicted 3D surface motion rather than only the 26-neighbourhood.
-//
-// IMPORTANT:
-// This is deliberately a TEST-WINDOW implementation. First tune and
-// inspect a local stack (e.g. 25 slices). Do not run the full 1903-slice
-// dataset until the diagnostics look correct. A full-volume version is
-// better implemented block-wise afterwards.
+// Taylor subvoxel refinement from the previous article-based program is
+// intentionally NOT applied here. Otherwise detector quality and refinement
+// quality would be mixed together. After we choose the most promising
+// detector (or a hybrid), Taylor refinement can be attached again.
 // ============================================================
 
 // ============================================================
-// PATHS / TEST WINDOW
+// PATHS / SAME TEST WINDOW AS THE PREVIOUS PROGRAM
 // ============================================================
 
 static const std::string INPUT_FOLDER =
@@ -76,7 +43,7 @@ static const std::string INPUT_FOLDER =
     "20251010_Blade_16bit_75.40um_1804x910x1903";
 
 static const std::string OUTPUT_FOLDER =
-    "D:/Studies/Real_work/BladeCT/Results/article_surface_v4_final";
+    "D:/Studies/Real_work/BladeCT/Results/three_detectors_comparison_v2";
 
 constexpr int FIRST_SLICE  = 994;
 constexpr int CENTER_SLICE = 1006;
@@ -91,10 +58,7 @@ constexpr float SPACING_Y = 75.4f;
 constexpr float SPACING_Z = 75.4f;
 
 // ============================================================
-// GAUSSIAN SMOOTHING
-// ============================================================
-// Moderate smoothing: enough to stabilise derivatives but not enough
-// to erase the thin blade boundary and small holes.
+// COMMON PREPROCESSING FOR CANNY
 // ============================================================
 
 constexpr double SIGMA_XY = 1.15;
@@ -102,183 +66,125 @@ constexpr double SIGMA_Z  = 1.00;
 constexpr int Z_GAUSS_RADIUS = 3;
 
 // ============================================================
-// 3D NMS
+// BROAD OBJECT ROI
 // ============================================================
-// The paper/Canny logic: keep local maxima of |grad f| along the
-// local gradient direction. A single local step is intentionally used;
-// several large NMS distances can suppress a real broad XCT edge.
+// This support mask is deliberately NOT an edge detector.  In V2 the seed
+// is obtained with Otsu thresholding on a robustly normalised CT slice,
+// followed by dominant-component selection, hole filling and dilation.
+//
+// Why this change:
+//   * the previous percentile mask admitted large portions of reconstruction
+//     texture, so adaptive Canny and phase congruency could seed on background;
+//   * Otsu is used only to obtain a generous object support region, not to
+//     define the measured surface itself;
+//   * strong hysteresis seeds are allowed only in a lightly dilated seed ROI,
+//     while weak continuation may travel in the broader ROI.
+// ============================================================
+
+constexpr float ROI_NORM_LOW_PERCENTILE  = 1.0f;
+constexpr float ROI_NORM_HIGH_PERCENTILE = 99.7f;
+constexpr float ROI_FALLBACK_BRIGHT_PERCENTILE = 86.0f;
+constexpr int ROI_SAMPLE_STRIDE = 4;
+constexpr int ROI_CLOSE_RADIUS = 4;
+constexpr int ROI_SEED_DILATE_RADIUS = 6;
+constexpr int ROI_DILATE_RADIUS = 28;
+constexpr int ROI_MIN_COMPONENT_AREA = 200;
+constexpr float ROI_DOMINANT_COMPONENT_RATIO = 0.08f;
+constexpr float ROI_MIN_AREA_FRACTION = 0.0005f;
+constexpr float ROI_MAX_AREA_FRACTION = 0.55f;
+constexpr int ROI_Z_PROPAGATION_RADIUS = 1;
+
+// ============================================================
+// COMMON 3D NMS FOR BOTH CANNY VARIANTS
 // ============================================================
 
 constexpr float NMS_STEP = 1.0f;
 constexpr float NMS_PLATEAU_FACTOR = 0.975f;
 
-// We only sample a subset of NMS candidates for percentile statistics;
-// every candidate itself is still kept and processed.
-constexpr int STAT_SAMPLE_XY_STRIDE = 2;
-constexpr int STAT_SAMPLE_Z_STRIDE  = 1;
-
 // ============================================================
-// 3D QUALITY METRICS - OUR ADDITIONS
+// DETECTOR 1: GLOBAL / ORDINARY 3D CANNY
 // ============================================================
-
-// Local structure-tensor-like coherence neighbourhood.
-constexpr int COHERENCE_RADIUS = 1; // 3 x 3 x 3
-constexpr float COHERENCE_SIGMA = 1.0f;
-constexpr int COHERENCE_POWER_ITERATIONS = 5;
-
-// Measure the material/air (or material/material) jump across the
-// candidate normal at two distances and average them.
-constexpr float CONTRAST_STEP_NEAR = 0.90f;
-constexpr float CONTRAST_STEP_FAR  = 1.80f;
-constexpr float CONTRAST_NEAR_WEIGHT = 0.65f;
-constexpr float CONTRAST_FAR_WEIGHT  = 0.35f;
-
-// Support from neighbouring slices. The surface position is predicted
-// from the local 3D normal, then a small XY neighbourhood is searched.
-constexpr int Z_SUPPORT_RADIUS = 4;
-
-// V4: support is tracked slice-by-slice instead of comparing every
-// neighbour slice only with the original seed position. This is important
-// for inner hole walls that drift by a few pixels between adjacent slices.
-constexpr int Z_SUPPORT_SEARCH_RADIUS = 2;
-constexpr int Z_SUPPORT_RECOVERY_SEARCH_RADIUS = 3;
-constexpr int Z_SUPPORT_MAX_CONSECUTIVE_MISSES = 1;
-
-// Local orientation is more important than orientation relative to the
-// original seed, because the wall can curve while it moves through Z.
-constexpr float Z_SUPPORT_MIN_NORMAL_COSINE = 0.38f;
-constexpr float Z_SUPPORT_MIN_SEED_NORMAL_COSINE = 0.28f;
-constexpr float Z_SUPPORT_MIN_MAG_RATIO = 0.09f;
-constexpr float Z_SUPPORT_LOCAL_NORMAL_WEIGHT = 0.70f;
-constexpr float Z_SUPPORT_SEED_NORMAL_WEIGHT  = 0.30f;
-constexpr float Z_SUPPORT_MIN_MATCH_SCORE = 0.10f;
-
-// Protect prediction from an unstable near-Z normal.
-constexpr float Z_SUPPORT_MAX_SHIFT_PER_SLICE = 5.0f;
-
-// Robust normalisation of gradient and contrast before composing score.
-constexpr float GRADIENT_SCALE_PERCENTILE = 96.0f;
-constexpr float CONTRAST_SCALE_PERCENTILE = 94.0f;
-
-// Composite surface score:
-//   score = gNorm * (
-//       base + wCoh*coherence + wContrast*contrastNorm + wZ*zSupportNorm)
-// We keep a non-zero base so a genuine but locally incomplete contour
-// can still survive; coherence/contrast/Z merely increase confidence.
-constexpr float SCORE_BASE       = 0.35f;
-constexpr float SCORE_W_COH      = 0.30f;
-constexpr float SCORE_W_CONTRAST = 0.20f;
-constexpr float SCORE_W_Z        = 0.15f;
-
-// ============================================================
-// 3D HYSTERESIS ON SURFACE SCORE
-// ============================================================
-// The old run used weak=28th and strong=88th percentile of raw gradient
-// maxima and therefore accepted ~8.17M of ~11.74M NMS voxels. Here the
-// thresholds are applied to the richer surface score and the weak level
-// is intentionally much less permissive.
+// A single pair of thresholds is used for the whole 3D test window.
+// The high threshold is selected from the global distribution of 3D-NMS
+// gradient magnitudes; low is a fixed fraction of high.
 // ============================================================
 
-constexpr float STRONG_SCORE_PERCENTILE = 92.0f;
-constexpr float WEAK_SCORE_PERCENTILE   = 60.0f;
-constexpr float WEAK_TO_STRONG_RATIO    = 0.48f;
-
-// Rescue slightly sub-threshold fragments when their 3D evidence is
-// very good. They still must connect to a strong edge through hysteresis.
-constexpr float RESCUE_TO_WEAK_RATIO = 0.82f;
-constexpr int RESCUE_MIN_Z_SUPPORT = 3;
-constexpr float RESCUE_MIN_COHERENCE = 0.72f;
-constexpr float RESCUE_MIN_CONTRAST_NORM = 0.18f;
-
-// During hysteresis, a weak neighbour should locally belong to the same
-// surface. Curved surfaces are allowed, hence this is deliberately mild.
-constexpr float HYSTERESIS_MIN_NORMAL_COSINE = 0.45f;
-constexpr int HYSTERESIS_Z_SUPPORT_OVERRIDE = 4;
-constexpr float HYSTERESIS_COHERENCE_OVERRIDE = 0.84f;
-
-// V4: cross-slice hysteresis follows the predicted surface motion instead
-// of being limited to the ordinary 26-neighbourhood. Only the best
-// candidate in each adjacent slice is attached to the track.
-constexpr int HYSTERESIS_TRACK_SEARCH_RADIUS = 1;
-constexpr float HYSTERESIS_TRACK_MIN_NORMAL_COSINE = 0.30f;
-constexpr int HYSTERESIS_TRACK_MIN_Z_SUPPORT = 2;
+constexpr float STANDARD_HIGH_PERCENTILE = 90.0f;
+constexpr float STANDARD_LOW_HIGH_RATIO = 0.40f;
 
 // ============================================================
-// PERSISTENT INTERNAL-SURFACE SEEDS
+// DETECTOR 2: ADAPTIVE / NOISE-AWARE 3D CANNY
 // ============================================================
-// A global strong percentile naturally favours the very bright outer
-// metal/air boundary. Internal hole walls can be physically real and
-// highly persistent in Z while never reaching that global percentile.
-// We therefore allow such NMS points to become independent hysteresis
-// seeds, but ONLY inside the undilated filled object silhouette.
-constexpr int INTERNAL_CORE_ERODE_RADIUS = 1;
-constexpr float PERSISTENT_SEED_TO_WEAK_RATIO = 0.70f;
-constexpr int PERSISTENT_SEED_MIN_Z_SUPPORT = 4;      // out of max 8
-constexpr float PERSISTENT_SEED_MIN_COHERENCE = 0.54f;
-constexpr float PERSISTENT_SEED_MIN_CONTRAST_NORM = 0.08f;
-
-// ============================================================
-// SHORT CONTOUR-GAP BRIDGING ON EXISTING NMS CANDIDATES
-// ============================================================
-// This is not a blind morphological closing. A point may be restored
-// only when:
-//   * it is already a 3D-NMS candidate;
-//   * it lies inside the object core;
-//   * it has non-trivial 3D evidence;
-//   * accepted contour points exist on BOTH tangent sides.
-// Thus the pass reconnects short missing pieces without inventing an
-// arbitrary straight line through the volume.
-constexpr float BRIDGE_SCORE_TO_WEAK_RATIO = 0.36f;
-constexpr int BRIDGE_MIN_Z_SUPPORT = 2;
-constexpr float BRIDGE_MIN_COHERENCE = 0.36f;
-constexpr float BRIDGE_MIN_CONTRAST_NORM = 0.05f;
-constexpr int BRIDGE_TANGENT_RADIUS = 10;
-constexpr int BRIDGE_SIDE_WINDOW_RADIUS = 2;
-constexpr int BRIDGE_PASSES = 6;
-constexpr float BRIDGE_MIN_NORMAL_COSINE = 0.18f;
-
-// ============================================================
-// BROAD POST-DETECTION OBJECT ROI
-// ============================================================
-// This is NOT the boundary detector. It is only a generous spatial crop
-// after Canny/hysteresis, used to delete remote streaks/ray artefacts.
-// ============================================================
-
-constexpr int ROI_CLOSE_RADIUS = 4;
-constexpr int ROI_DILATE_RADIUS = 20;
-constexpr int ROI_MIN_COMPONENT_AREA = 200;
-constexpr float ROI_BRIGHT_PERCENTILE = 72.0f;
-
-// ============================================================
-// TAYLOR SUBVOXEL REFINEMENT
-// ============================================================
-// The paper computes derivatives of f and uses
-//      t* = -D_g^2 f / D_g^3 f.
+// V2 follows the adaptive-Canny literature more closely:
+//   * thresholds are derived from the gradient-magnitude histogram after NMS;
+//   * Otsu determines the local high threshold automatically;
+//   * low = 0.5 * high, matching a common Otsu-Canny construction;
+//   * a GLOBAL Otsu reference is retained as a floor because purely local
+//     thresholding is well known to collapse in quiet/noisy background tiles.
 //
-// To keep memory reasonable, this implementation does NOT allocate 19
-// derivative volumes. Instead, for every accepted edge voxel we evaluate
-// the required first/second/third partial derivatives locally from the
-// smoothed 3D field, then contract them with the local unit gradient.
-// This follows the same mathematical equations while avoiding several
-// gigabytes of additional derivative arrays.
+// The local and global thresholds are blended rather than switching abruptly.
+// This is an engineering safeguard for XCT volumes with spatially varying
+// reconstruction noise; it preserves the article's histogram-adaptive idea.
 // ============================================================
 
-constexpr float TAYLOR_MAX_ABS_DISPLACEMENT_VOXELS = 1.35f;
-constexpr float TAYLOR_MIN_ABS_D3 = 1e-13f;
-constexpr bool TAYLOR_REQUIRE_LOCAL_MAXIMUM = true;
+constexpr int ADAPT_TILE_SIZE = 64;
+constexpr int ADAPT_TILE_MARGIN = 24;
+constexpr int ADAPT_Z_RADIUS = 2;
+constexpr int ADAPT_SAMPLE_STRIDE = 2;
+constexpr int ADAPT_MIN_SAMPLES = 40;
+constexpr int ADAPT_OTSU_BINS = 256;
+constexpr float ADAPT_LOW_HIGH_RATIO = 0.50f;
+constexpr float ADAPT_GLOBAL_FLOOR_RATIO = 0.65f;
+constexpr float ADAPT_GLOBAL_CEIL_RATIO  = 1.60f;
+constexpr float ADAPT_LOCAL_BLEND_MIN = 0.35f;
+constexpr float ADAPT_LOCAL_BLEND_MAX = 0.75f;
+constexpr int ADAPT_GRID_SMOOTH_RADIUS_XY = 1;
+constexpr int ADAPT_GRID_SMOOTH_RADIUS_Z = 1;
 
-// If the third-order fit becomes numerically invalid, do not create a
-// topological hole in an otherwise accepted Canny surface. First try a
-// local parabolic maximum of |grad f| along the same 3D normal. If even
-// that is not stable, keep the accepted voxel centre (t = 0).
-constexpr bool ENABLE_SUBVOXEL_FALLBACK = true;
-constexpr float PARABOLIC_MAX_ABS_OFFSET = 0.75f;
+// ============================================================
+// DETECTOR 3: NOISE-COMPENSATED PHASE CONGRUENCY
+// ============================================================
+// V2 implements the important parts of Kovesi's phasecong3 formulation more
+// faithfully than V1:
+//   * per-orientation phase congruency with Rayleigh noise compensation;
+//   * frequency-spread weighting;
+//   * covariance of phase congruency over orientations;
+//   * MAXIMUM MOMENT M as the edge-strength measure;
+//   * feature phase/type.  XCT material boundaries are predominantly step
+//     features (feature phase near zero), so line/ridge-like responses receive
+//     only a soft penalty instead of being discarded.
+//
+// Kovesi explicitly notes that k can be increased well above the default 2
+// for noisy images.  We therefore use a more conservative value here while
+// keeping the standard 4-scale/6-orientation Log-Gabor bank.
+// ============================================================
+
+constexpr int PC_NSCALE = 4;
+constexpr int PC_NORIENT = 6;
+constexpr float PC_MIN_WAVELENGTH = 3.0f;
+constexpr float PC_MULT = 2.1f;
+constexpr float PC_SIGMA_ON_F = 0.55f;
+constexpr float PC_NOISE_K = 4.0f;
+constexpr float PC_CUTOFF = 0.50f;
+constexpr float PC_GAIN = 10.0f;
+constexpr int PC_NOISE_SAMPLE_STRIDE = 4;
+constexpr int PC_NOISE_BORDER = 8;
+constexpr float PC_STEP_WEIGHT_FLOOR = 0.45f;
+constexpr float PC_STEP_WEIGHT_POWER = 2.0f;
+constexpr float PC_ANISOTROPY_WEIGHT_FLOOR = 0.35f;
+constexpr float PC_NMS_STEP = 1.0f;
+constexpr float PC_NMS_PLATEAU_FACTOR = 0.985f;
+constexpr float PC_HIGH_PERCENTILE = 82.0f;
+constexpr float PC_HIGH_FLOOR = 0.06f;
+constexpr float PC_LOW_HIGH_RATIO = 0.40f;
+constexpr float PC_LOW_FLOOR = 0.02f;
 
 // ============================================================
 // OUTPUT OPTIONS
 // ============================================================
 
-constexpr bool SAVE_ACCEPTED_MASK_FOR_ALL_TEST_SLICES = true;
+constexpr bool SAVE_ALL_SLICE_DIAGNOSTICS = true;
+constexpr bool SAVE_PHASE_CONGRUENCY_16BIT = true;
 
 // ============================================================
 // DATA TYPES
@@ -319,58 +225,70 @@ struct GradientVolume
     }
 };
 
-struct SurfaceMetricsVolume
+struct RobustStats
 {
-    int width = 0;
-    int height = 0;
+    float median = 0.0f;
+    float madSigma = 0.0f;
+};
+
+struct AdaptiveThresholdGrid
+{
+    int tilesX = 0;
+    int tilesY = 0;
     int depth = 0;
+    int tileSize = ADAPT_TILE_SIZE;
 
-    // meaningful only where NMS != 0
-    std::vector<float> coherence;
-    std::vector<float> contrast;
-    std::vector<float> contrastNorm;
-    std::vector<float> score;
-    std::vector<uint8_t> zSupport;
+    std::vector<float> low;
+    std::vector<float> high;
 
-    float gradientScale = 1.0f;
-    float contrastScale = 1.0f;
-
-    inline size_t index(int x, int y, int z) const
+    inline size_t index(int tx, int ty, int z) const
     {
         return
-            (static_cast<size_t>(z) * static_cast<size_t>(height) +
-             static_cast<size_t>(y)) *
-                static_cast<size_t>(width) +
-            static_cast<size_t>(x);
+            (static_cast<size_t>(z) * static_cast<size_t>(tilesY) +
+             static_cast<size_t>(ty)) *
+                static_cast<size_t>(tilesX) +
+            static_cast<size_t>(tx);
+    }
+
+    inline int tileX(int x) const
+    {
+        return std::clamp(x / tileSize, 0, tilesX - 1);
+    }
+
+    inline int tileY(int y) const
+    {
+        return std::clamp(y / tileSize, 0, tilesY - 1);
+    }
+
+    inline float lowAt(int x, int y, int z) const
+    {
+        return low[index(tileX(x), tileY(y), z)];
+    }
+
+    inline float highAt(int x, int y, int z) const
+    {
+        return high[index(tileX(x), tileY(y), z)];
     }
 };
 
-struct SubvoxelPoint
+struct PhaseFilterBank
 {
-    int sourceX = 0;
-    int sourceY = 0;
-    int sourceZ = 0;
+    int originalRows = 0;
+    int originalCols = 0;
+    int paddedRows = 0;
+    int paddedCols = 0;
 
-    float tPhysicalUm = 0.0f;
+    std::vector<cv::Mat> logGabor;
+    std::vector<cv::Mat> spread;
+};
 
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-
-    float physicalX = 0.0f;
-    float physicalY = 0.0f;
-    float physicalZ = 0.0f;
-
-    float gradientMagnitude = 0.0f;
-    float coherence = 0.0f;
-    float contrast = 0.0f;
-    int zSupport = 0;
-    float surfaceScore = 0.0f;
-
-    // 1 = third-order Taylor (article)
-    // 2 = parabolic |grad f| fallback
-    // 3 = accepted voxel centre fallback
-    int refinementType = 0;
+struct PhaseCongruencyResult
+{
+    cv::Mat pc;          // CV_32F: Kovesi maximum moment M, edge strength
+    cv::Mat stepness;    // CV_32F: 1 for step-like phase, 0 for line-like phase
+    cv::Mat edgeScore;   // CV_32F: M with a soft step-feature weighting
+    cv::Mat nmsScore;    // CV_32F: edgeScore only at local maxima
+    float meanNoiseThreshold = 0.0f;
 };
 
 // ============================================================
@@ -402,6 +320,137 @@ static float percentile(std::vector<float> values, float p)
         );
 
     return values[index];
+}
+
+static RobustStats robustStats(std::vector<float> values)
+{
+    RobustStats out;
+
+    if (values.empty())
+        return out;
+
+    out.median = percentile(values, 50.0f);
+
+    for (float& v : values)
+        v = std::abs(v - out.median);
+
+    const float mad = percentile(values, 50.0f);
+    out.madSigma = 1.4826f * mad;
+
+    return out;
+}
+
+
+static float otsuThresholdFloatSamples(
+    const std::vector<float>& values,
+    int bins = 256)
+{
+    if (values.empty())
+        return 0.0f;
+
+    std::vector<float> finite;
+    finite.reserve(values.size());
+
+    for (float v : values)
+    {
+        if (std::isfinite(v) && v >= 0.0f)
+            finite.push_back(v);
+    }
+
+    if (finite.empty())
+        return 0.0f;
+
+    const float hi = std::max(percentile(finite, 99.5f), 1e-12f);
+    const float lo = 0.0f;
+
+    if (hi <= lo + 1e-12f)
+        return hi;
+
+    bins = std::max(32, bins);
+    std::vector<double> hist(static_cast<size_t>(bins), 0.0);
+
+    for (float v : finite)
+    {
+        const float t = clamp01((v - lo) / (hi - lo));
+        const int b = std::clamp(
+            static_cast<int>(std::floor(t * static_cast<float>(bins - 1))),
+            0,
+            bins - 1
+            );
+        hist[static_cast<size_t>(b)] += 1.0;
+    }
+
+    double total = 0.0;
+    double sumAll = 0.0;
+
+    for (int i = 0; i < bins; ++i)
+    {
+        total += hist[static_cast<size_t>(i)];
+        sumAll += static_cast<double>(i) * hist[static_cast<size_t>(i)];
+    }
+
+    if (total <= 0.0)
+        return 0.0f;
+
+    double weightBackground = 0.0;
+    double sumBackground = 0.0;
+    double bestVariance = -1.0;
+    int bestBin = 0;
+
+    for (int i = 0; i < bins; ++i)
+    {
+        const double h = hist[static_cast<size_t>(i)];
+        weightBackground += h;
+        sumBackground += static_cast<double>(i) * h;
+
+        if (weightBackground <= 0.0)
+            continue;
+
+        const double weightForeground = total - weightBackground;
+        if (weightForeground <= 0.0)
+            break;
+
+        const double meanBackground = sumBackground / weightBackground;
+        const double meanForeground =
+            (sumAll - sumBackground) / weightForeground;
+
+        const double diff = meanBackground - meanForeground;
+        const double between =
+            weightBackground * weightForeground * diff * diff;
+
+        if (between > bestVariance)
+        {
+            bestVariance = between;
+            bestBin = i;
+        }
+    }
+
+    const float fraction =
+        static_cast<float>(bestBin) /
+        static_cast<float>(std::max(1, bins - 1));
+
+    return lo + fraction * (hi - lo);
+}
+
+static std::string sliceName(int globalZ)
+{
+    std::ostringstream ss;
+    ss << std::setw(4) << std::setfill('0') << globalZ;
+    return ss.str();
+}
+
+static size_t volumeIndex(
+    int x,
+    int y,
+    int z,
+    int width,
+    int height)
+{
+    return
+        (static_cast<size_t>(z) * static_cast<size_t>(height) +
+         static_cast<size_t>(y)) *
+            static_cast<size_t>(width) +
+        static_cast<size_t>(x);
 }
 
 static cv::Vec3f normalFromGradient(const GradientVoxel& g)
@@ -439,20 +488,6 @@ static cv::Vec3f normalVoxelDirection(const cv::Vec3f& normal)
         d /= len;
 
     return d;
-}
-
-static float absNormalCosine(
-    const GradientVoxel& a,
-    const GradientVoxel& b)
-{
-    if (a.mag <= 1e-12f || b.mag <= 1e-12f)
-        return 0.0f;
-
-    const float dot =
-        (a.gx * b.gx + a.gy * b.gy + a.gz * b.gz) /
-        (a.mag * b.mag);
-
-    return std::abs(std::clamp(dot, -1.0f, 1.0f));
 }
 
 // ============================================================
@@ -739,99 +774,326 @@ static void gaussianBlurZInPlace(
 }
 
 // ============================================================
-// VOLUME SAMPLING
+// OBJECT SUPPORT ROI: OTSU SEED + DOMINANT COMPONENTS
 // ============================================================
 
-static float sampleVolumeTrilinear(
-    const std::vector<float>& volume,
-    int width,
-    int height,
-    int depth,
-    float x,
-    float y,
-    float z)
+static cv::Mat fillBinaryHoles(const cv::Mat& binary)
 {
-    x = std::clamp(x, 0.0f, static_cast<float>(width - 1));
-    y = std::clamp(y, 0.0f, static_cast<float>(height - 1));
-    z = std::clamp(z, 0.0f, static_cast<float>(depth - 1));
+    cv::Mat padded;
+    cv::copyMakeBorder(
+        binary,
+        padded,
+        1, 1, 1, 1,
+        cv::BORDER_CONSTANT,
+        cv::Scalar(0)
+        );
 
-    const int x0 = static_cast<int>(std::floor(x));
-    const int y0 = static_cast<int>(std::floor(y));
-    const int z0 = static_cast<int>(std::floor(z));
+    cv::Mat flood = padded.clone();
+    cv::floodFill(flood, cv::Point(0, 0), cv::Scalar(255));
 
-    const int x1 = std::min(x0 + 1, width - 1);
-    const int y1 = std::min(y0 + 1, height - 1);
-    const int z1 = std::min(z0 + 1, depth - 1);
+    cv::Mat holes;
+    cv::bitwise_not(flood, holes);
 
-    const float tx = x - static_cast<float>(x0);
-    const float ty = y - static_cast<float>(y0);
-    const float tz = z - static_cast<float>(z0);
+    cv::Mat filled;
+    cv::bitwise_or(padded, holes, filled);
 
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    auto v = [&](int xx, int yy, int zz) -> float
-    {
-        return volume[
-            static_cast<size_t>(zz) * sliceSize +
-            static_cast<size_t>(yy) * width +
-            static_cast<size_t>(xx)
-        ];
-    };
-
-    const float c000 = v(x0, y0, z0);
-    const float c100 = v(x1, y0, z0);
-    const float c010 = v(x0, y1, z0);
-    const float c110 = v(x1, y1, z0);
-    const float c001 = v(x0, y0, z1);
-    const float c101 = v(x1, y0, z1);
-    const float c011 = v(x0, y1, z1);
-    const float c111 = v(x1, y1, z1);
-
-    const float c00 = c000 * (1.0f - tx) + c100 * tx;
-    const float c10 = c010 * (1.0f - tx) + c110 * tx;
-    const float c01 = c001 * (1.0f - tx) + c101 * tx;
-    const float c11 = c011 * (1.0f - tx) + c111 * tx;
-
-    const float c0 = c00 * (1.0f - ty) + c10 * ty;
-    const float c1 = c01 * (1.0f - ty) + c11 * ty;
-
-    return c0 * (1.0f - tz) + c1 * tz;
+    return filled(
+               cv::Rect(1, 1, binary.cols, binary.rows)
+               ).clone();
 }
 
-static float voxelValue(
+static cv::Mat robustNormalize8U(const cv::Mat& input)
+{
+    CV_Assert(input.type() == CV_32F);
+
+    std::vector<float> samples;
+    samples.reserve(
+        static_cast<size_t>((input.rows + ROI_SAMPLE_STRIDE - 1) /
+                            ROI_SAMPLE_STRIDE) *
+        static_cast<size_t>((input.cols + ROI_SAMPLE_STRIDE - 1) /
+                            ROI_SAMPLE_STRIDE)
+        );
+
+    for (int y = 0; y < input.rows; y += ROI_SAMPLE_STRIDE)
+    {
+        const float* row = input.ptr<float>(y);
+        for (int x = 0; x < input.cols; x += ROI_SAMPLE_STRIDE)
+            samples.push_back(row[x]);
+    }
+
+    const float lo = percentile(samples, ROI_NORM_LOW_PERCENTILE);
+    const float hi = percentile(samples, ROI_NORM_HIGH_PERCENTILE);
+    const float range = std::max(hi - lo, 1e-8f);
+
+    cv::Mat out(input.size(), CV_8U, cv::Scalar(0));
+
+    for (int y = 0; y < input.rows; ++y)
+    {
+        const float* src = input.ptr<float>(y);
+        uchar* dst = out.ptr<uchar>(y);
+
+        for (int x = 0; x < input.cols; ++x)
+        {
+            dst[x] = cv::saturate_cast<uchar>(
+                255.0f * clamp01((src[x] - lo) / range)
+                );
+        }
+    }
+
+    return out;
+}
+
+static cv::Mat keepDominantComponents(
+    const cv::Mat& binary,
+    int minArea,
+    float relativeToLargest)
+{
+    cv::Mat labels;
+    cv::Mat stats;
+    cv::Mat centroids;
+
+    const int count = cv::connectedComponentsWithStats(
+        binary,
+        labels,
+        stats,
+        centroids,
+        8,
+        CV_32S
+        );
+
+    if (count <= 1)
+        return cv::Mat(binary.size(), CV_8U, cv::Scalar(0));
+
+    int largestArea = 0;
+    for (int label = 1; label < count; ++label)
+    {
+        largestArea = std::max(
+            largestArea,
+            stats.at<int>(label, cv::CC_STAT_AREA)
+            );
+    }
+
+    const int relativeFloor =
+        static_cast<int>(std::lround(
+            static_cast<double>(largestArea) *
+            static_cast<double>(relativeToLargest)
+            ));
+
+    const int keepFloor = std::max(minArea, relativeFloor);
+
+    cv::Mat out(binary.size(), CV_8U, cv::Scalar(0));
+
+    for (int label = 1; label < count; ++label)
+    {
+        const int area = stats.at<int>(label, cv::CC_STAT_AREA);
+        if (area < keepFloor)
+            continue;
+
+        out.setTo(255, labels == label);
+    }
+
+    return out;
+}
+
+static cv::Mat makeOtsuObjectSeed(const cv::Mat& slice)
+{
+    const cv::Mat normalized = robustNormalize8U(slice);
+
+    cv::Mat seed;
+    cv::threshold(
+        normalized,
+        seed,
+        0.0,
+        255.0,
+        cv::THRESH_BINARY | cv::THRESH_OTSU
+        );
+
+    const cv::Mat closeKernel = cv::getStructuringElement(
+        cv::MORPH_ELLIPSE,
+        cv::Size(2 * ROI_CLOSE_RADIUS + 1,
+                 2 * ROI_CLOSE_RADIUS + 1)
+        );
+
+    cv::morphologyEx(
+        seed,
+        seed,
+        cv::MORPH_CLOSE,
+        closeKernel
+        );
+
+    seed = keepDominantComponents(
+        seed,
+        ROI_MIN_COMPONENT_AREA,
+        ROI_DOMINANT_COMPONENT_RATIO
+        );
+
+    const double areaFraction =
+        static_cast<double>(cv::countNonZero(seed)) /
+        static_cast<double>(seed.total());
+
+    // If Otsu degenerates because the reconstructed background dominates the
+    // histogram, fall back to a conservative bright-tail seed.  The fallback
+    // is still only a support mask and never becomes the measured boundary.
+    if (areaFraction < ROI_MIN_AREA_FRACTION ||
+        areaFraction > ROI_MAX_AREA_FRACTION)
+    {
+        std::vector<float> samples;
+        samples.reserve(
+            static_cast<size_t>((slice.rows + ROI_SAMPLE_STRIDE - 1) /
+                                ROI_SAMPLE_STRIDE) *
+            static_cast<size_t>((slice.cols + ROI_SAMPLE_STRIDE - 1) /
+                                ROI_SAMPLE_STRIDE)
+            );
+
+        for (int y = 0; y < slice.rows; y += ROI_SAMPLE_STRIDE)
+        {
+            const float* row = slice.ptr<float>(y);
+            for (int x = 0; x < slice.cols; x += ROI_SAMPLE_STRIDE)
+                samples.push_back(row[x]);
+        }
+
+        const float threshold =
+            percentile(samples, ROI_FALLBACK_BRIGHT_PERCENTILE);
+
+        cv::compare(slice, threshold, seed, cv::CMP_GE);
+        cv::morphologyEx(seed, seed, cv::MORPH_CLOSE, closeKernel);
+        seed = keepDominantComponents(
+            seed,
+            ROI_MIN_COMPONENT_AREA,
+            ROI_DOMINANT_COMPONENT_RATIO
+            );
+    }
+
+    return fillBinaryHoles(seed);
+}
+
+static void propagateMaskAlongZ(
+    std::vector<uint8_t>& mask,
+    int width,
+    int height,
+    int depth,
+    int radius)
+{
+    if (radius <= 0)
+        return;
+
+    const size_t sliceSize =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+
+    const std::vector<uint8_t> original = mask;
+
+    cv::parallel_for_(
+        cv::Range(0, depth),
+        [&](const cv::Range& range)
+        {
+            for (int z = range.start; z < range.end; ++z)
+            {
+                uint8_t* dst =
+                    mask.data() + static_cast<size_t>(z) * sliceSize;
+
+                for (int dz = -radius; dz <= radius; ++dz)
+                {
+                    const int zz = z + dz;
+                    if (zz < 0 || zz >= depth)
+                        continue;
+
+                    const uint8_t* src =
+                        original.data() + static_cast<size_t>(zz) * sliceSize;
+
+                    for (size_t i = 0; i < sliceSize; ++i)
+                    {
+                        if (src[i] != 0)
+                            dst[i] = 1;
+                    }
+                }
+            }
+        }
+        );
+}
+
+static void buildROIVolumes(
     const std::vector<float>& volume,
     int width,
     int height,
     int depth,
-    int x,
-    int y,
-    int z)
+    std::vector<uint8_t>& seedROI,
+    std::vector<uint8_t>& broadROI)
 {
-    x = std::clamp(x, 0, width - 1);
-    y = std::clamp(y, 0, height - 1);
-    z = std::clamp(z, 0, depth - 1);
+    std::cout
+        << "Building Otsu-based object support ROI..."
+        << std::endl;
 
     const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+    const size_t total =
+        sliceSize * static_cast<size_t>(depth);
 
-    return volume[
-        static_cast<size_t>(z) * sliceSize +
-        static_cast<size_t>(y) * width +
-        static_cast<size_t>(x)
-    ];
+    seedROI.assign(total, 0);
+    broadROI.assign(total, 0);
+
+    const cv::Mat seedDilateKernel = cv::getStructuringElement(
+        cv::MORPH_ELLIPSE,
+        cv::Size(2 * ROI_SEED_DILATE_RADIUS + 1,
+                 2 * ROI_SEED_DILATE_RADIUS + 1)
+        );
+
+    const cv::Mat broadDilateKernel = cv::getStructuringElement(
+        cv::MORPH_ELLIPSE,
+        cv::Size(2 * ROI_DILATE_RADIUS + 1,
+                 2 * ROI_DILATE_RADIUS + 1)
+        );
+
+    for (int z = 0; z < depth; ++z)
+    {
+        cv::Mat slice(
+            height,
+            width,
+            CV_32F,
+            const_cast<float*>(
+                volume.data() + static_cast<size_t>(z) * sliceSize
+                )
+            );
+
+        const cv::Mat filled = makeOtsuObjectSeed(slice);
+
+        cv::Mat seedMask;
+        cv::Mat broadMask;
+        cv::dilate(filled, seedMask, seedDilateKernel);
+        cv::dilate(filled, broadMask, broadDilateKernel);
+
+        uint8_t* seedDst =
+            seedROI.data() + static_cast<size_t>(z) * sliceSize;
+        uint8_t* broadDst =
+            broadROI.data() + static_cast<size_t>(z) * sliceSize;
+
+        for (int y = 0; y < height; ++y)
+        {
+            const uchar* s = seedMask.ptr<uchar>(y);
+            const uchar* b = broadMask.ptr<uchar>(y);
+
+            for (int x = 0; x < width; ++x)
+            {
+                const size_t i = static_cast<size_t>(y) * width + x;
+                seedDst[i] = s[x] != 0 ? 1 : 0;
+                broadDst[i] = b[x] != 0 ? 1 : 0;
+            }
+        }
+    }
+
+    // Only the broad continuation mask is propagated through neighbouring
+    // slices.  The seed mask remains tight so remote streaks cannot initiate
+    // hysteresis merely because they occur near another slice's object.
+    propagateMaskAlongZ(
+        broadROI,
+        width,
+        height,
+        depth,
+        ROI_Z_PROPAGATION_RADIUS
+        );
 }
 
 // ============================================================
 // 3D GRADIENT
-// ============================================================
-// Article: Gaussian smoothing, then partial derivatives in x/y/z with
-// Sobel operators. OpenCV's Sobel is 2D, therefore x/y are true Sobel
-// derivatives on each already Z-smoothed slice, while z is a centred
-// derivative of the same smoothed 3D field. All three derivatives are
-// expressed per physical micrometre, so anisotropic spacing is supported.
 // ============================================================
 
 static GradientVolume computeGradient3D(
@@ -940,7 +1202,8 @@ static GradientVolume computeGradient3D(
 
                         g.gz =
                             (dzDistance > 0.0f)
-                                ? (volume[idxP] - volume[idxM]) / dzDistance
+                                ? (volume[idxP] - volume[idxM]) /
+                                      dzDistance
                                 : 0.0f;
 
                         g.mag =
@@ -957,10 +1220,6 @@ static GradientVolume computeGradient3D(
 
     return result;
 }
-
-// ============================================================
-// TRILINEAR GRADIENT-MAGNITUDE SAMPLE
-// ============================================================
 
 static float sampleMagnitude(
     const GradientVolume& gradient,
@@ -1014,12 +1273,11 @@ static float sampleMagnitude(
 }
 
 // ============================================================
-// TRUE 3D NMS
+// TRUE 3D NMS FOR BOTH CANNY VARIANTS
 // ============================================================
 
 static std::vector<uint8_t> computeNMS3D(
-    const GradientVolume& gradient,
-    std::vector<float>& gradientSamples)
+    const GradientVolume& gradient)
 {
     std::cout << "Computing 3D non-maximum suppression..." << std::endl;
 
@@ -1083,1472 +1341,14 @@ static std::vector<uint8_t> computeNMS3D(
         }
         );
 
-    gradientSamples.clear();
-
-    for (int z = 1;
-         z < gradient.depth - 1;
-         z += STAT_SAMPLE_Z_STRIDE)
-    {
-        for (int y = 1;
-             y < gradient.height - 1;
-             y += STAT_SAMPLE_XY_STRIDE)
-        {
-            for (int x = 1;
-                 x < gradient.width - 1;
-                 x += STAT_SAMPLE_XY_STRIDE)
-            {
-                const size_t idx =
-                    static_cast<size_t>(z) * sliceSize +
-                    static_cast<size_t>(y) * gradient.width +
-                    static_cast<size_t>(x);
-
-                if (nms[idx] != 0)
-                    gradientSamples.push_back(gradient.data[idx].mag);
-            }
-        }
-    }
-
-    std::cout << "NMS statistical samples: "
-              << gradientSamples.size() << std::endl;
-
     return nms;
 }
 
-// ============================================================
-// 3D STRUCTURE-TENSOR-LIKE COHERENCE
-// ============================================================
-// We accumulate J = sum(w * grad*grad^T) in a 3x3x3 neighbourhood.
-// The ratio lambda_max / trace(J) is close to 1 when local gradients
-// mostly point in one normal direction (surface-like), and ~1/3 for
-// isotropic/noisy orientation distributions. We remap [1/3,1] -> [0,1].
-// ============================================================
-
-static float computeLocalGradientCoherence(
-    const GradientVolume& gradient,
-    int x,
-    int y,
-    int z)
-{
-    double jxx = 0.0;
-    double jxy = 0.0;
-    double jxz = 0.0;
-    double jyy = 0.0;
-    double jyz = 0.0;
-    double jzz = 0.0;
-
-    const double inv2Sigma2 =
-        1.0 / (2.0 * COHERENCE_SIGMA * COHERENCE_SIGMA);
-
-    for (int dz = -COHERENCE_RADIUS;
-         dz <= COHERENCE_RADIUS;
-         ++dz)
-    {
-        const int zz = z + dz;
-        if (zz < 0 || zz >= gradient.depth)
-            continue;
-
-        for (int dy = -COHERENCE_RADIUS;
-             dy <= COHERENCE_RADIUS;
-             ++dy)
-        {
-            const int yy = y + dy;
-            if (yy < 0 || yy >= gradient.height)
-                continue;
-
-            for (int dx = -COHERENCE_RADIUS;
-                 dx <= COHERENCE_RADIUS;
-                 ++dx)
-            {
-                const int xx = x + dx;
-                if (xx < 0 || xx >= gradient.width)
-                    continue;
-
-                const GradientVoxel& g = gradient.at(xx, yy, zz);
-
-                if (g.mag <= 1e-12f)
-                    continue;
-
-                const double r2 =
-                    static_cast<double>(dx * dx + dy * dy + dz * dz);
-
-                const double w = std::exp(-r2 * inv2Sigma2);
-
-                const double gx = g.gx;
-                const double gy = g.gy;
-                const double gz = g.gz;
-
-                jxx += w * gx * gx;
-                jxy += w * gx * gy;
-                jxz += w * gx * gz;
-                jyy += w * gy * gy;
-                jyz += w * gy * gz;
-                jzz += w * gz * gz;
-            }
-        }
-    }
-
-    const double trace = jxx + jyy + jzz;
-    if (trace <= 1e-24)
-        return 0.0f;
-
-    cv::Vec3d v(
-        gradient.at(x, y, z).gx,
-        gradient.at(x, y, z).gy,
-        gradient.at(x, y, z).gz
-        );
-
-    double len = cv::norm(v);
-    if (len <= 1e-18)
-        v = cv::Vec3d(1.0, 0.0, 0.0);
-    else
-        v /= len;
-
-    for (int iter = 0; iter < COHERENCE_POWER_ITERATIONS; ++iter)
-    {
-        cv::Vec3d next(
-            jxx * v[0] + jxy * v[1] + jxz * v[2],
-            jxy * v[0] + jyy * v[1] + jyz * v[2],
-            jxz * v[0] + jyz * v[1] + jzz * v[2]
-            );
-
-        const double n = cv::norm(next);
-        if (n <= 1e-24)
-            break;
-
-        v = next / n;
-    }
-
-    const cv::Vec3d jv(
-        jxx * v[0] + jxy * v[1] + jxz * v[2],
-        jxy * v[0] + jyy * v[1] + jyz * v[2],
-        jxz * v[0] + jyz * v[1] + jzz * v[2]
-        );
-
-    const double lambdaMax = v.dot(jv);
-    const double dominance = std::clamp(lambdaMax / trace, 0.0, 1.0);
-
-    const double mapped =
-        (dominance - 1.0 / 3.0) /
-        (2.0 / 3.0);
-
-    return clamp01(static_cast<float>(mapped));
-}
-
-// ============================================================
-// CONTRAST ACROSS LOCAL NORMAL
-// ============================================================
-
-static float computeNormalContrast(
-    const std::vector<float>& volume,
-    int width,
-    int height,
-    int depth,
-    const GradientVolume& gradient,
-    int x,
-    int y,
-    int z)
-{
-    const GradientVoxel& g = gradient.at(x, y, z);
-    if (g.mag <= 1e-12f)
-        return 0.0f;
-
-    const cv::Vec3f normal = normalFromGradient(g);
-    const cv::Vec3f d = normalVoxelDirection(normal);
-
-    auto pairContrast = [&](float step) -> float
-    {
-        const float plus =
-            sampleVolumeTrilinear(
-                volume,
-                width,
-                height,
-                depth,
-                static_cast<float>(x) + d[0] * step,
-                static_cast<float>(y) + d[1] * step,
-                static_cast<float>(z) + d[2] * step
-                );
-
-        const float minus =
-            sampleVolumeTrilinear(
-                volume,
-                width,
-                height,
-                depth,
-                static_cast<float>(x) - d[0] * step,
-                static_cast<float>(y) - d[1] * step,
-                static_cast<float>(z) - d[2] * step
-                );
-
-        return std::abs(plus - minus);
-    };
-
-    return
-        CONTRAST_NEAR_WEIGHT * pairContrast(CONTRAST_STEP_NEAR) +
-        CONTRAST_FAR_WEIGHT  * pairContrast(CONTRAST_STEP_FAR);
-}
-
-// ============================================================
-// PREDICT SURFACE SHIFT BETWEEN Z SLICES
-// ============================================================
-// For a local level surface F(x,y,z)=const:
-//     Fx dx + Fy dy + Fz dz = 0.
-// We choose the minimum-norm XY displacement along the XY projection
-// of the normal. Returned shift is in voxel coordinates.
-// ============================================================
-
-static cv::Point2f predictSurfaceShift(
-    const cv::Vec3f& normal,
-    int deltaZ)
-{
-    const float nx = normal[0];
-    const float ny = normal[1];
-    const float nz = normal[2];
-
-    const float denominator = nx * nx + ny * ny;
-
-    if (denominator < 1e-6f)
-        return cv::Point2f(0.0f, 0.0f);
-
-    const float dzPhysical =
-        static_cast<float>(deltaZ) * SPACING_Z;
-
-    const float dxPhysical =
-        -nz * dzPhysical * nx / denominator;
-
-    const float dyPhysical =
-        -nz * dzPhysical * ny / denominator;
-
-    cv::Point2f shift(
-        dxPhysical / SPACING_X,
-        dyPhysical / SPACING_Y
-        );
-
-    const float length =
-        std::sqrt(shift.x * shift.x + shift.y * shift.y);
-
-    const float maxLength =
-        Z_SUPPORT_MAX_SHIFT_PER_SLICE *
-        static_cast<float>(std::max(1, std::abs(deltaZ)));
-
-    if (length > maxLength && length > 1e-6f)
-    {
-        const float scale = maxLength / length;
-        shift.x *= scale;
-        shift.y *= scale;
-    }
-
-    return shift;
-}
-
-// ============================================================
-// Z SUPPORT FOR ONE NMS CANDIDATE
-// ============================================================
-
-struct ZTrackCandidate
-{
-    bool found = false;
-    int x = 0;
-    int y = 0;
-    float match = 0.0f;
-};
-
-static ZTrackCandidate findBestZTrackCandidate(
+static std::vector<float> collectNmsGradientSamples(
     const GradientVolume& gradient,
     const std::vector<uint8_t>& nms,
-    const GradientVoxel& seed,
-    const GradientVoxel& previous,
-    float expectedX,
-    float expectedY,
-    int z,
-    int searchRadius)
-{
-    ZTrackCandidate best;
-
-    const size_t sliceSize =
-        static_cast<size_t>(gradient.width) *
-        static_cast<size_t>(gradient.height);
-
-    const int cx = cvRound(expectedX);
-    const int cy = cvRound(expectedY);
-
-    for (int oy = -searchRadius; oy <= searchRadius; ++oy)
-    {
-        const int yy = cy + oy;
-        if (yy < 1 || yy >= gradient.height - 1)
-            continue;
-
-        for (int ox = -searchRadius; ox <= searchRadius; ++ox)
-        {
-            const int xx = cx + ox;
-            if (xx < 1 || xx >= gradient.width - 1)
-                continue;
-
-            const size_t idx =
-                static_cast<size_t>(z) * sliceSize +
-                static_cast<size_t>(yy) * gradient.width +
-                static_cast<size_t>(xx);
-
-            if (nms[idx] == 0)
-                continue;
-
-            const GradientVoxel& candidate = gradient.data[idx];
-            if (candidate.mag <= 1e-12f)
-                continue;
-
-            const float localCos =
-                absNormalCosine(previous, candidate);
-
-            const float seedCos =
-                absNormalCosine(seed, candidate);
-
-            // Allow a curved / drifting wall when either the local track
-            // orientation remains compatible or there is still reasonable
-            // agreement with the original seed.
-            if (localCos < Z_SUPPORT_MIN_NORMAL_COSINE &&
-                seedCos < Z_SUPPORT_MIN_SEED_NORMAL_COSINE)
-            {
-                continue;
-            }
-
-            const float magRatio =
-                std::min(previous.mag, candidate.mag) /
-                std::max(previous.mag, candidate.mag);
-
-            if (magRatio < Z_SUPPORT_MIN_MAG_RATIO)
-                continue;
-
-            const float orientation =
-                Z_SUPPORT_LOCAL_NORMAL_WEIGHT * localCos +
-                Z_SUPPORT_SEED_NORMAL_WEIGHT  * seedCos;
-
-            const float dist2 =
-                static_cast<float>(ox * ox + oy * oy);
-
-            const float distPenalty =
-                1.0f / (1.0f + 0.12f * dist2);
-
-            // sqrt(magRatio) is deliberately milder than multiplying by
-            // magRatio directly. Inner walls often change contrast from one
-            // slice to the next because of partial-volume effects.
-            const float magnitudeTerm =
-                0.30f + 0.70f * std::sqrt(std::max(0.0f, magRatio));
-
-            const float match =
-                orientation * magnitudeTerm * distPenalty;
-
-            if (match >= Z_SUPPORT_MIN_MATCH_SCORE &&
-                (!best.found || match > best.match))
-            {
-                best.found = true;
-                best.x = xx;
-                best.y = yy;
-                best.match = match;
-            }
-        }
-    }
-
-    return best;
-}
-
-static uint8_t computeCandidateZSupport(
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& nms,
-    int x,
-    int y,
-    int z)
-{
-    const GradientVoxel& seed = gradient.at(x, y, z);
-    if (seed.mag <= 1e-12f)
-        return 0;
-
-    int hits = 0;
-
-    // Track independently towards -Z and +Z. Crucially, every successful
-    // match becomes the predictor for the next slice. Therefore a hole wall
-    // may drift / curve through the stack instead of having to remain close
-    // to one line extrapolated from the centre slice.
-    for (int direction : {-1, +1})
-    {
-        int lastX = x;
-        int lastY = y;
-        int lastZ = z;
-
-        GradientVoxel previous = seed;
-        int consecutiveMisses = 0;
-
-        for (int step = 1; step <= Z_SUPPORT_RADIUS; ++step)
-        {
-            const int zz = z + direction * step;
-            if (zz < 0 || zz >= gradient.depth)
-                break;
-
-            const int deltaFromLast = zz - lastZ;
-
-            const cv::Vec3f previousNormal =
-                normalFromGradient(previous);
-
-            const cv::Point2f predicted =
-                predictSurfaceShift(previousNormal, deltaFromLast);
-
-            const float expectedX =
-                static_cast<float>(lastX) + predicted.x;
-
-            const float expectedY =
-                static_cast<float>(lastY) + predicted.y;
-
-            const int searchRadius =
-                (consecutiveMisses == 0)
-                    ? Z_SUPPORT_SEARCH_RADIUS
-                    : Z_SUPPORT_RECOVERY_SEARCH_RADIUS;
-
-            const ZTrackCandidate match =
-                findBestZTrackCandidate(
-                    gradient,
-                    nms,
-                    seed,
-                    previous,
-                    expectedX,
-                    expectedY,
-                    zz,
-                    searchRadius
-                    );
-
-            if (match.found)
-            {
-                ++hits;
-                consecutiveMisses = 0;
-
-                lastX = match.x;
-                lastY = match.y;
-                lastZ = zz;
-                previous = gradient.at(match.x, match.y, zz);
-            }
-            else
-            {
-                ++consecutiveMisses;
-
-                if (consecutiveMisses >
-                    Z_SUPPORT_MAX_CONSECUTIVE_MISSES)
-                {
-                    break;
-                }
-
-                // Do not move the anchor on a miss. At the next step
-                // deltaFromLast becomes 2, so the same 3D normal predicts
-                // the location two slices away and the wider recovery
-                // window gets one chance to reacquire the surface.
-            }
-        }
-    }
-
-    return static_cast<uint8_t>(hits);
-}
-
-// ============================================================
-// COMPUTE QUALITY METRICS FOR NMS CANDIDATES
-// ============================================================
-
-static SurfaceMetricsVolume computeSurfaceMetrics(
-    const std::vector<float>& volume,
-    int width,
-    int height,
-    int depth,
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& nms,
-    const std::vector<uint8_t>& broadROI3D,
-    const std::vector<float>& gradientSamples,
-    std::vector<float>& scoreSamples)
-{
-    std::cout << "Computing 3D surface quality metrics..." << std::endl;
-
-    SurfaceMetricsVolume metrics;
-    metrics.width = width;
-    metrics.height = height;
-    metrics.depth = depth;
-
-    const size_t total = gradient.data.size();
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    metrics.coherence.assign(total, 0.0f);
-    metrics.contrast.assign(total, 0.0f);
-    metrics.contrastNorm.assign(total, 0.0f);
-    metrics.score.assign(total, 0.0f);
-    metrics.zSupport.assign(total, 0);
-
-    metrics.gradientScale =
-        std::max(
-            percentile(gradientSamples, GRADIENT_SCALE_PERCENTILE),
-            1e-12f
-            );
-
-    // Pass 1: expensive geometric features only on NMS candidates.
-    cv::parallel_for_(
-        cv::Range(1, depth - 1),
-        [&](const cv::Range& range)
-        {
-            for (int z = range.start; z < range.end; ++z)
-            {
-                for (int y = 1; y < height - 1; ++y)
-                {
-                    for (int x = 1; x < width - 1; ++x)
-                    {
-                        const size_t idx =
-                            static_cast<size_t>(z) * sliceSize +
-                            static_cast<size_t>(y) * width +
-                            static_cast<size_t>(x);
-
-                        if (nms[idx] == 0 || broadROI3D[idx] == 0)
-                            continue;
-
-                        metrics.coherence[idx] =
-                            computeLocalGradientCoherence(
-                                gradient, x, y, z
-                                );
-
-                        metrics.contrast[idx] =
-                            computeNormalContrast(
-                                volume,
-                                width,
-                                height,
-                                depth,
-                                gradient,
-                                x,
-                                y,
-                                z
-                                );
-
-                        metrics.zSupport[idx] =
-                            computeCandidateZSupport(
-                                gradient,
-                                nms,
-                                x,
-                                y,
-                                z
-                                );
-                    }
-                }
-            }
-        }
-        );
-
-    std::vector<float> contrastSamples;
-
-    for (int z = 1; z < depth - 1; z += STAT_SAMPLE_Z_STRIDE)
-    {
-        for (int y = 1; y < height - 1; y += STAT_SAMPLE_XY_STRIDE)
-        {
-            for (int x = 1; x < width - 1; x += STAT_SAMPLE_XY_STRIDE)
-            {
-                const size_t idx =
-                    static_cast<size_t>(z) * sliceSize +
-                    static_cast<size_t>(y) * width +
-                    static_cast<size_t>(x);
-
-                if (nms[idx] != 0 && broadROI3D[idx] != 0)
-                    contrastSamples.push_back(metrics.contrast[idx]);
-            }
-        }
-    }
-
-    metrics.contrastScale =
-        std::max(
-            percentile(contrastSamples, CONTRAST_SCALE_PERCENTILE),
-            1e-8f
-            );
-
-    std::cout
-        << "  gradient scale P" << GRADIENT_SCALE_PERCENTILE
-        << " = " << metrics.gradientScale << '\n'
-        << "  contrast scale P" << CONTRAST_SCALE_PERCENTILE
-        << " = " << metrics.contrastScale << std::endl;
-
-    // Pass 2: compose score.
-    cv::parallel_for_(
-        cv::Range(1, depth - 1),
-        [&](const cv::Range& range)
-        {
-            for (int z = range.start; z < range.end; ++z)
-            {
-                for (int y = 1; y < height - 1; ++y)
-                {
-                    for (int x = 1; x < width - 1; ++x)
-                    {
-                        const size_t idx =
-                            static_cast<size_t>(z) * sliceSize +
-                            static_cast<size_t>(y) * width +
-                            static_cast<size_t>(x);
-
-                        if (nms[idx] == 0 || broadROI3D[idx] == 0)
-                            continue;
-
-                        const float gNorm =
-                            clamp01(
-                                gradient.data[idx].mag /
-                                metrics.gradientScale
-                                );
-
-                        const float contrastNorm =
-                            clamp01(
-                                metrics.contrast[idx] /
-                                metrics.contrastScale
-                                );
-
-                        metrics.contrastNorm[idx] = contrastNorm;
-
-                        const float zNorm =
-                            clamp01(
-                                static_cast<float>(metrics.zSupport[idx]) /
-                                static_cast<float>(2 * Z_SUPPORT_RADIUS)
-                                );
-
-                        const float quality =
-                            SCORE_BASE +
-                            SCORE_W_COH * metrics.coherence[idx] +
-                            SCORE_W_CONTRAST * contrastNorm +
-                            SCORE_W_Z * zNorm;
-
-                        metrics.score[idx] = gNorm * quality;
-                    }
-                }
-            }
-        }
-        );
-
-    scoreSamples.clear();
-
-    for (int z = 1; z < depth - 1; z += STAT_SAMPLE_Z_STRIDE)
-    {
-        for (int y = 1; y < height - 1; y += STAT_SAMPLE_XY_STRIDE)
-        {
-            for (int x = 1; x < width - 1; x += STAT_SAMPLE_XY_STRIDE)
-            {
-                const size_t idx =
-                    static_cast<size_t>(z) * sliceSize +
-                    static_cast<size_t>(y) * width +
-                    static_cast<size_t>(x);
-
-                if (nms[idx] != 0 && broadROI3D[idx] != 0)
-                    scoreSamples.push_back(metrics.score[idx]);
-            }
-        }
-    }
-
-    std::cout << "Surface-score statistical samples: "
-              << scoreSamples.size() << std::endl;
-
-    return metrics;
-}
-
-// ============================================================
-// 3D CANNY-LIKE HYSTERESIS ON SURFACE SCORE
-// ============================================================
-// edgeType:
-//   0 = rejected/non-NMS
-//   1 = weak
-//   2 = strong seed
-//   3 = 3D-rescue candidate
-//
-// accepted is generated by growing only from strong seeds.
-// ============================================================
-
-static void hysteresis3D(
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& nms,
-    const SurfaceMetricsVolume& metrics,
-    const std::vector<uint8_t>& coreROI,
-    float weakThreshold,
-    float strongThreshold,
-    std::vector<uint8_t>& edgeType,
-    std::vector<uint8_t>& accepted)
-{
-    std::cout << "Running quality-aware 3D hysteresis..." << std::endl;
-
-    const size_t total = gradient.data.size();
-    edgeType.assign(total, 0);
-    accepted.assign(total, 0);
-
-    const float rescueThreshold =
-        weakThreshold * RESCUE_TO_WEAK_RATIO;
-
-    const float persistentSeedThreshold =
-        weakThreshold * PERSISTENT_SEED_TO_WEAK_RATIO;
-
-    std::vector<uint32_t> queue;
-    queue.reserve(total / 30);
-
-    long long strongCount = 0;
-    long long persistentSeedCount = 0;
-    long long weakCount = 0;
-    long long rescueCount = 0;
-
-    for (size_t i = 0; i < total; ++i)
-    {
-        if (nms[i] == 0)
-            continue;
-
-        const float score = metrics.score[i];
-
-        // Global strong Canny seeds.
-        if (score >= strongThreshold)
-        {
-            edgeType[i] = 2;
-            accepted[i] = 1;
-            queue.push_back(static_cast<uint32_t>(i));
-            ++strongCount;
-        }
-        // Internal boundaries (especially hole walls) can be weaker than
-        // the outer metal/air boundary, so a global percentile may never
-        // make them strong. If the same candidate is persistent through
-        // many neighbouring slices and has coherent 3D gradient evidence,
-        // promote it to an independent seed. Restricting this to coreROI
-        // prevents this mechanism from seeding exterior ray artefacts.
-        else if (
-            coreROI[i] != 0 &&
-            score >= persistentSeedThreshold &&
-            metrics.zSupport[i] >= PERSISTENT_SEED_MIN_Z_SUPPORT &&
-            metrics.coherence[i] >= PERSISTENT_SEED_MIN_COHERENCE &&
-            metrics.contrastNorm[i] >= PERSISTENT_SEED_MIN_CONTRAST_NORM)
-        {
-            edgeType[i] = 4;
-            accepted[i] = 1;
-            queue.push_back(static_cast<uint32_t>(i));
-            ++persistentSeedCount;
-        }
-        else if (score >= weakThreshold)
-        {
-            edgeType[i] = 1;
-            ++weakCount;
-        }
-        else if (
-            score >= rescueThreshold &&
-            metrics.zSupport[i] >= RESCUE_MIN_Z_SUPPORT &&
-            metrics.coherence[i] >= RESCUE_MIN_COHERENCE &&
-            metrics.contrastNorm[i] >= RESCUE_MIN_CONTRAST_NORM)
-        {
-            edgeType[i] = 3;
-            ++rescueCount;
-        }
-    }
-
-    std::cout
-        << "  strong seeds        = " << strongCount << '\n'
-        << "  persistent 3D seeds = " << persistentSeedCount << '\n'
-        << "  weak candidates     = " << weakCount << '\n'
-        << "  rescue candidates   = " << rescueCount << std::endl;
-
-    const int width = gradient.width;
-    const int height = gradient.height;
-    const int depth = gradient.depth;
-
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    size_t head = 0;
-
-    auto canAcceptCandidate =
-        [&](size_t currentIdx,
-            size_t candidateIdx,
-            float minimumCosine,
-            bool requireTrackSupport) -> bool
-    {
-        if (accepted[candidateIdx] != 0)
-            return false;
-
-        if (edgeType[candidateIdx] == 0)
-            return false;
-
-        const float cosine =
-            absNormalCosine(
-                gradient.data[currentIdx],
-                gradient.data[candidateIdx]
-                );
-
-        const bool compatibleNormal =
-            cosine >= minimumCosine;
-
-        const bool strong3DOverride =
-            metrics.zSupport[candidateIdx] >=
-                HYSTERESIS_Z_SUPPORT_OVERRIDE ||
-            metrics.coherence[candidateIdx] >=
-                HYSTERESIS_COHERENCE_OVERRIDE;
-
-        if (requireTrackSupport)
-        {
-            const bool tracked =
-                metrics.zSupport[candidateIdx] >=
-                HYSTERESIS_TRACK_MIN_Z_SUPPORT;
-
-            if (!(compatibleNormal && tracked) &&
-                !strong3DOverride)
-            {
-                return false;
-            }
-        }
-        else
-        {
-            if (!compatibleNormal && !strong3DOverride)
-                return false;
-        }
-
-        return true;
-    };
-
-    while (head < queue.size())
-    {
-        const uint32_t linear = queue[head++];
-
-        const int z =
-            static_cast<int>(
-                static_cast<size_t>(linear) / sliceSize
-                );
-
-        const size_t insideSlice =
-            static_cast<size_t>(linear) -
-            static_cast<size_t>(z) * sliceSize;
-
-        const int y =
-            static_cast<int>(insideSlice / static_cast<size_t>(width));
-
-        const int x =
-            static_cast<int>(
-                insideSlice -
-                static_cast<size_t>(y) * static_cast<size_t>(width)
-                );
-
-        const GradientVoxel& current = gradient.data[linear];
-
-        // ----------------------------------------------------
-        // A) ordinary 8-neighbour tracking INSIDE the same slice
-        // ----------------------------------------------------
-        for (int dy = -1; dy <= 1; ++dy)
-        {
-            const int yy = y + dy;
-            if (yy < 0 || yy >= height)
-                continue;
-
-            for (int dx = -1; dx <= 1; ++dx)
-            {
-                if (dx == 0 && dy == 0)
-                    continue;
-
-                const int xx = x + dx;
-                if (xx < 0 || xx >= width)
-                    continue;
-
-                const size_t nidx =
-                    static_cast<size_t>(z) * sliceSize +
-                    static_cast<size_t>(yy) * width +
-                    static_cast<size_t>(xx);
-
-                if (!canAcceptCandidate(
-                        static_cast<size_t>(linear),
-                        nidx,
-                        HYSTERESIS_MIN_NORMAL_COSINE,
-                        false))
-                {
-                    continue;
-                }
-
-                accepted[nidx] = 1;
-                queue.push_back(static_cast<uint32_t>(nidx));
-            }
-        }
-
-        // ----------------------------------------------------
-        // B) motion-aware tracking to z-1 and z+1
-        // ----------------------------------------------------
-        // The old 26-neighbourhood could move at most one XY pixel while
-        // changing a slice. Real inner holes in this scan drift by more
-        // than that. We predict the intersection shift from the local 3D
-        // normal and attach only the BEST compatible candidate around the
-        // predicted point on each adjacent slice.
-        const cv::Vec3f currentNormal =
-            normalFromGradient(current);
-
-        for (int dz : {-1, +1})
-        {
-            const int zz = z + dz;
-            if (zz < 0 || zz >= depth)
-                continue;
-
-            const cv::Point2f predicted =
-                predictSurfaceShift(currentNormal, dz);
-
-            const int cx =
-                cvRound(static_cast<float>(x) + predicted.x);
-
-            const int cy =
-                cvRound(static_cast<float>(y) + predicted.y);
-
-            size_t bestIdx = std::numeric_limits<size_t>::max();
-            float bestMatch = -1.0f;
-
-            for (int oy = -HYSTERESIS_TRACK_SEARCH_RADIUS;
-                 oy <= HYSTERESIS_TRACK_SEARCH_RADIUS;
-                 ++oy)
-            {
-                const int yy = cy + oy;
-                if (yy < 0 || yy >= height)
-                    continue;
-
-                for (int ox = -HYSTERESIS_TRACK_SEARCH_RADIUS;
-                     ox <= HYSTERESIS_TRACK_SEARCH_RADIUS;
-                     ++ox)
-                {
-                    const int xx = cx + ox;
-                    if (xx < 0 || xx >= width)
-                        continue;
-
-                    const size_t nidx =
-                        static_cast<size_t>(zz) * sliceSize +
-                        static_cast<size_t>(yy) * width +
-                        static_cast<size_t>(xx);
-
-                    if (!canAcceptCandidate(
-                            static_cast<size_t>(linear),
-                            nidx,
-                            HYSTERESIS_TRACK_MIN_NORMAL_COSINE,
-                            true))
-                    {
-                        continue;
-                    }
-
-                    const float cosine =
-                        absNormalCosine(
-                            current,
-                            gradient.data[nidx]
-                            );
-
-                    const float dist2 =
-                        static_cast<float>(ox * ox + oy * oy);
-
-                    const float distPenalty =
-                        1.0f / (1.0f + 0.18f * dist2);
-
-                    const float supportBonus =
-                        1.0f +
-                        0.06f *
-                            static_cast<float>(metrics.zSupport[nidx]);
-
-                    const float match =
-                        cosine * distPenalty * supportBonus;
-
-                    if (match > bestMatch)
-                    {
-                        bestMatch = match;
-                        bestIdx = nidx;
-                    }
-                }
-            }
-
-            if (bestIdx != std::numeric_limits<size_t>::max())
-            {
-                accepted[bestIdx] = 1;
-                queue.push_back(static_cast<uint32_t>(bestIdx));
-            }
-        }
-    }
-
-    std::cout << "Accepted by quality-aware 3D hysteresis: "
-              << queue.size() << std::endl;
-}
-
-// ============================================================
-// EVIDENCE-GUIDED SHORT GAP BRIDGING
-// ============================================================
-// Standard hysteresis is intentionally conservative and can leave a
-// short break in an otherwise excellent hole contour. We do NOT use a
-// binary morphological closing here. Instead, we restore only existing
-// 3D-NMS candidates which are:
-//   - inside the object core,
-//   - persistent in neighbouring slices,
-//   - supported by local gradient quality,
-//   - geometrically located between already accepted contour points
-//     on both tangent sides in the same slice.
-//
-// This makes the operation topology-aware without moving the measured
-// boundary away from the gradient ridge.
-// ============================================================
-
-static bool hasAcceptedOnTangentSide(
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& accepted,
-    int x,
-    int y,
-    int z,
-    float tx,
-    float ty,
-    int sign)
-{
-    const size_t sliceSize =
-        static_cast<size_t>(gradient.width) *
-        static_cast<size_t>(gradient.height);
-
-    const GradientVoxel& seed = gradient.at(x, y, z);
-
-    for (int step = 2; step <= BRIDGE_TANGENT_RADIUS; ++step)
-    {
-        const float px =
-            static_cast<float>(x) +
-            static_cast<float>(sign * step) * tx;
-
-        const float py =
-            static_cast<float>(y) +
-            static_cast<float>(sign * step) * ty;
-
-        const int cx = cvRound(px);
-        const int cy = cvRound(py);
-
-        for (int oy = -BRIDGE_SIDE_WINDOW_RADIUS;
-             oy <= BRIDGE_SIDE_WINDOW_RADIUS;
-             ++oy)
-        {
-            const int yy = cy + oy;
-            if (yy < 0 || yy >= gradient.height)
-                continue;
-
-            for (int ox = -BRIDGE_SIDE_WINDOW_RADIUS;
-                 ox <= BRIDGE_SIDE_WINDOW_RADIUS;
-                 ++ox)
-            {
-                const int xx = cx + ox;
-                if (xx < 0 || xx >= gradient.width)
-                    continue;
-
-                const float projection =
-                    (static_cast<float>(xx - x) * tx +
-                     static_cast<float>(yy - y) * ty) *
-                    static_cast<float>(sign);
-
-                // Ensure that the found point really lies on the requested
-                // side, not in the search window around the origin.
-                if (projection < 1.25f)
-                    continue;
-
-                const size_t idx =
-                    static_cast<size_t>(z) * sliceSize +
-                    static_cast<size_t>(yy) * gradient.width +
-                    static_cast<size_t>(xx);
-
-                if (accepted[idx] == 0)
-                    continue;
-
-                const float cosine =
-                    absNormalCosine(seed, gradient.data[idx]);
-
-                if (cosine >= BRIDGE_MIN_NORMAL_COSINE)
-                    return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-static long long bridgeShortContourGaps3D(
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& nms,
-    const SurfaceMetricsVolume& metrics,
-    const std::vector<uint8_t>& coreROI,
-    float weakThreshold,
-    std::vector<uint8_t>& edgeType,
-    std::vector<uint8_t>& accepted)
-{
-    std::cout << "Bridging short internal contour gaps..." << std::endl;
-
-    const int width = gradient.width;
-    const int height = gradient.height;
-    const int depth = gradient.depth;
-
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    const float bridgeScoreThreshold =
-        weakThreshold * BRIDGE_SCORE_TO_WEAK_RATIO;
-
-    long long totalAdded = 0;
-
-    for (int pass = 0; pass < BRIDGE_PASSES; ++pass)
-    {
-        std::vector<uint32_t> add;
-        add.reserve(4096);
-
-        for (int z = 1; z < depth - 1; ++z)
-        {
-            for (int y = 2; y < height - 2; ++y)
-            {
-                for (int x = 2; x < width - 2; ++x)
-                {
-                    const size_t idx =
-                        static_cast<size_t>(z) * sliceSize +
-                        static_cast<size_t>(y) * width +
-                        static_cast<size_t>(x);
-
-                    if (accepted[idx] != 0 ||
-                        nms[idx] == 0 ||
-                        coreROI[idx] == 0)
-                    {
-                        continue;
-                    }
-
-                    if (metrics.score[idx] < bridgeScoreThreshold)
-                        continue;
-
-                    if (metrics.zSupport[idx] < BRIDGE_MIN_Z_SUPPORT)
-                        continue;
-
-                    if (metrics.coherence[idx] < BRIDGE_MIN_COHERENCE)
-                        continue;
-
-                    if (metrics.contrastNorm[idx] <
-                        BRIDGE_MIN_CONTRAST_NORM)
-                    {
-                        continue;
-                    }
-
-                    const GradientVoxel& g = gradient.data[idx];
-                    if (g.mag <= 1e-12f)
-                        continue;
-
-                    const cv::Vec3f n = normalFromGradient(g);
-
-                    const float xy =
-                        std::sqrt(n[0] * n[0] + n[1] * n[1]);
-
-                    // A nearly Z-normal surface does not form a reliable
-                    // 2D contour tangent in this slice.
-                    if (xy < 0.10f)
-                        continue;
-
-                    const float tx = -n[1] / xy;
-                    const float ty =  n[0] / xy;
-
-                    const bool forward =
-                        hasAcceptedOnTangentSide(
-                            gradient,
-                            accepted,
-                            x, y, z,
-                            tx, ty,
-                            +1
-                            );
-
-                    if (!forward)
-                        continue;
-
-                    const bool backward =
-                        hasAcceptedOnTangentSide(
-                            gradient,
-                            accepted,
-                            x, y, z,
-                            tx, ty,
-                            -1
-                            );
-
-                    if (!backward)
-                        continue;
-
-                    add.push_back(static_cast<uint32_t>(idx));
-                }
-            }
-        }
-
-        if (add.empty())
-        {
-            std::cout
-                << "  bridge pass " << (pass + 1)
-                << ": no new points" << std::endl;
-            break;
-        }
-
-        for (const uint32_t idx : add)
-        {
-            if (accepted[idx] == 0)
-            {
-                accepted[idx] = 1;
-                edgeType[idx] = 5;
-                ++totalAdded;
-            }
-        }
-
-        std::cout
-            << "  bridge pass " << (pass + 1)
-            << ": +" << add.size()
-            << " candidates" << std::endl;
-    }
-
-    std::cout
-        << "Total evidence-guided bridge points: "
-        << totalAdded << std::endl;
-
-    return totalAdded;
-}
-
-// ============================================================
-// BROAD OBJECT ROI FOR POST-FILTERING ONLY
-// ============================================================
-
-static cv::Mat fillBinaryHoles(const cv::Mat& binary)
-{
-    cv::Mat flood = binary.clone();
-
-    cv::copyMakeBorder(
-        flood,
-        flood,
-        1, 1, 1, 1,
-        cv::BORDER_CONSTANT,
-        cv::Scalar(0)
-        );
-
-    cv::floodFill(flood, cv::Point(0, 0), cv::Scalar(255));
-
-    cv::Mat floodCrop =
-        flood(cv::Rect(1, 1, binary.cols, binary.rows)).clone();
-
-    cv::Mat holes;
-    cv::bitwise_not(floodCrop, holes);
-
-    cv::Mat filled;
-    cv::bitwise_or(binary, holes, filled);
-
-    return filled;
-}
-
-static cv::Mat buildBroadObjectROI(
-    const cv::Mat& centerFloat,
-    cv::Mat* coreOut = nullptr)
-{
-    std::vector<float> samples;
-    samples.reserve(
-        static_cast<size_t>((centerFloat.rows + 1) / 2) *
-        static_cast<size_t>((centerFloat.cols + 1) / 2)
-        );
-
-    for (int y = 0; y < centerFloat.rows; y += 2)
-    {
-        const float* row = centerFloat.ptr<float>(y);
-        for (int x = 0; x < centerFloat.cols; x += 2)
-            samples.push_back(row[x]);
-    }
-
-    const float low = percentile(samples, 1.0f);
-    const float high = percentile(samples, 99.5f);
-    const float range = std::max(high - low, 1e-6f);
-    const float pThreshold = percentile(samples, ROI_BRIGHT_PERCENTILE);
-
-    cv::Mat norm8(centerFloat.size(), CV_8U, cv::Scalar(0));
-
-    for (int y = 0; y < centerFloat.rows; ++y)
-    {
-        const float* src = centerFloat.ptr<float>(y);
-        uchar* dst = norm8.ptr<uchar>(y);
-
-        for (int x = 0; x < centerFloat.cols; ++x)
-        {
-            const float t = clamp01((src[x] - low) / range);
-            dst[x] = cv::saturate_cast<uchar>(255.0f * t);
-        }
-    }
-
-    cv::Mat otsuMask;
-    const double otsu8 = cv::threshold(
-        norm8,
-        otsuMask,
-        0,
-        255,
-        cv::THRESH_BINARY | cv::THRESH_OTSU
-        );
-
-    const float otsuThreshold =
-        low + static_cast<float>(otsu8 / 255.0) * range;
-
-    const float relaxedOtsu =
-        low + 0.88f * (otsuThreshold - low);
-
-    const float thresholdValue =
-        std::max(relaxedOtsu, pThreshold);
-
-    cv::Mat raw;
-    cv::compare(centerFloat, thresholdValue, raw, cv::CMP_GE);
-
-    const int closeDiameter = 2 * ROI_CLOSE_RADIUS + 1;
-    const cv::Mat closeKernel = cv::getStructuringElement(
-        cv::MORPH_ELLIPSE,
-        cv::Size(closeDiameter, closeDiameter)
-        );
-
-    cv::morphologyEx(
-        raw,
-        raw,
-        cv::MORPH_CLOSE,
-        closeKernel,
-        cv::Point(-1, -1),
-        2
-        );
-
-    cv::Mat labels;
-    cv::Mat stats;
-    cv::Mat centroids;
-
-    const int count = cv::connectedComponentsWithStats(
-        raw,
-        labels,
-        stats,
-        centroids,
-        8,
-        CV_32S
-        );
-
-    int largestLabel = -1;
-    int largestArea = 0;
-
-    for (int label = 1; label < count; ++label)
-    {
-        const int area = stats.at<int>(label, cv::CC_STAT_AREA);
-
-        if (area >= ROI_MIN_COMPONENT_AREA && area > largestArea)
-        {
-            largestArea = area;
-            largestLabel = label;
-        }
-    }
-
-    cv::Mat mainMask(centerFloat.size(), CV_8U, cv::Scalar(0));
-
-    if (largestLabel < 0)
-    {
-        // Broad ROI fails open, because it is only a post-filter.
-        mainMask.setTo(255);
-
-        // Internal persistent seeding must fail CLOSED. Otherwise a
-        // failed intensity segmentation could promote ray artefacts
-        // everywhere in the reconstruction field.
-        if (coreOut != nullptr)
-            *coreOut = cv::Mat(centerFloat.size(), CV_8U, cv::Scalar(0));
-
-        return mainMask;
-    }
-
-    cv::compare(labels, cv::Scalar(largestLabel), mainMask, cv::CMP_EQ);
-    mainMask = fillBinaryHoles(mainMask);
-
-    if (coreOut != nullptr)
-    {
-        cv::Mat core = mainMask.clone();
-
-        if (INTERNAL_CORE_ERODE_RADIUS > 0)
-        {
-            const int d = 2 * INTERNAL_CORE_ERODE_RADIUS + 1;
-            const cv::Mat kernel = cv::getStructuringElement(
-                cv::MORPH_ELLIPSE,
-                cv::Size(d, d)
-                );
-
-            cv::erode(core, core, kernel);
-        }
-
-        *coreOut = core;
-    }
-
-    const int dilateDiameter = 2 * ROI_DILATE_RADIUS + 1;
-    const cv::Mat dilateKernel = cv::getStructuringElement(
-        cv::MORPH_ELLIPSE,
-        cv::Size(dilateDiameter, dilateDiameter)
-        );
-
-    cv::dilate(mainMask, mainMask, dilateKernel);
-
-    return mainMask;
-}
-
-// ============================================================
-// BROAD 3D ROI VOLUME
-// ============================================================
-// Build the same generous filled+dilated support independently for each
-// test slice. This is an engineering acceleration/filter, not the surface
-// locator: NMS still decides the edge position inside this broad support.
-// If ROI extraction fails on a slice, buildBroadObjectROI fails open.
-// ============================================================
-
-static void buildROIVolumes(
-    const std::vector<float>& volume,
-    int width,
-    int height,
-    int depth,
-    std::vector<uint8_t>& broadROI,
-    std::vector<uint8_t>& coreROI)
-{
-    std::cout << "Building broad/core 3D object ROI..." << std::endl;
-
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    broadROI.assign(
-        sliceSize * static_cast<size_t>(depth),
-        0
-        );
-
-    coreROI.assign(
-        sliceSize * static_cast<size_t>(depth),
-        0
-        );
-
-    for (int z = 0; z < depth; ++z)
-    {
-        cv::Mat slice(
-            height,
-            width,
-            CV_32F,
-            const_cast<float*>(
-                volume.data() + static_cast<size_t>(z) * sliceSize
-                )
-            );
-
-        cv::Mat coreMask;
-        const cv::Mat broadMask =
-            buildBroadObjectROI(slice, &coreMask);
-
-        uint8_t* broadDst =
-            broadROI.data() + static_cast<size_t>(z) * sliceSize;
-
-        uint8_t* coreDst =
-            coreROI.data() + static_cast<size_t>(z) * sliceSize;
-
-        for (int y = 0; y < height; ++y)
-        {
-            const uchar* broadSrc = broadMask.ptr<uchar>(y);
-            const uchar* coreSrc = coreMask.ptr<uchar>(y);
-
-            std::memcpy(
-                broadDst + static_cast<size_t>(y) * width,
-                broadSrc,
-                static_cast<size_t>(width) * sizeof(uint8_t)
-                );
-
-            std::memcpy(
-                coreDst + static_cast<size_t>(y) * width,
-                coreSrc,
-                static_cast<size_t>(width) * sizeof(uint8_t)
-                );
-        }
-
-        std::cout << "\rROI slice "
-                  << (FIRST_SLICE + z)
-                  << " / " << LAST_SLICE
-                  << std::flush;
-    }
-
-    std::cout << std::endl;
-}
-
-static std::vector<float> collectNmsGradientSamplesInROI(
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& nms,
-    const std::vector<uint8_t>& roi)
+    const std::vector<uint8_t>& roi,
+    int strideXY = 2)
 {
     std::vector<float> samples;
 
@@ -2556,17 +1356,11 @@ static std::vector<float> collectNmsGradientSamplesInROI(
         static_cast<size_t>(gradient.width) *
         static_cast<size_t>(gradient.height);
 
-    for (int z = 1;
-         z < gradient.depth - 1;
-         z += STAT_SAMPLE_Z_STRIDE)
+    for (int z = 1; z < gradient.depth - 1; ++z)
     {
-        for (int y = 1;
-             y < gradient.height - 1;
-             y += STAT_SAMPLE_XY_STRIDE)
+        for (int y = 1; y < gradient.height - 1; y += strideXY)
         {
-            for (int x = 1;
-                 x < gradient.width - 1;
-                 x += STAT_SAMPLE_XY_STRIDE)
+            for (int x = 1; x < gradient.width - 1; x += strideXY)
             {
                 const size_t idx =
                     static_cast<size_t>(z) * sliceSize +
@@ -2582,215 +1376,1214 @@ static std::vector<float> collectNmsGradientSamplesInROI(
     return samples;
 }
 
-// ============================================================
-// CENTER-SLICE MASK / SCALAR VISUALISATION
-// ============================================================
-
-static cv::Mat centerMaskFromVolume(
-    const std::vector<uint8_t>& volumeMask,
-    int width,
-    int height,
-    int centerZ)
-{
-    cv::Mat out(height, width, CV_8U, cv::Scalar(0));
-
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    const uint8_t* src =
-        volumeMask.data() +
-        static_cast<size_t>(centerZ) * sliceSize;
-
-    for (int y = 0; y < height; ++y)
-    {
-        uchar* dst = out.ptr<uchar>(y);
-
-        for (int x = 0; x < width; ++x)
-        {
-            if (src[static_cast<size_t>(y) * width + x] != 0)
-                dst[x] = 255;
-        }
-    }
-
-    return out;
-}
-
-static cv::Mat scalarCenterImage(
-    const std::vector<float>& values,
-    int width,
-    int height,
-    int centerZ,
-    float upperPercentile = 99.5f)
-{
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    const size_t offset =
-        static_cast<size_t>(centerZ) * sliceSize;
-
-    std::vector<float> samples;
-    samples.reserve(sliceSize / 4 + 1);
-
-    for (int y = 0; y < height; y += 2)
-    {
-        for (int x = 0; x < width; x += 2)
-        {
-            const float v =
-                values[offset + static_cast<size_t>(y) * width + x];
-
-            if (v > 0.0f && std::isfinite(v))
-                samples.push_back(v);
-        }
-    }
-
-    const float hi =
-        samples.empty()
-            ? 1.0f
-            : std::max(percentile(samples, upperPercentile), 1e-12f);
-
-    cv::Mat out(height, width, CV_8U, cv::Scalar(0));
-
-    for (int y = 0; y < height; ++y)
-    {
-        uchar* dst = out.ptr<uchar>(y);
-
-        for (int x = 0; x < width; ++x)
-        {
-            const float v =
-                values[offset + static_cast<size_t>(y) * width + x];
-
-            dst[x] = cv::saturate_cast<uchar>(
-                255.0f * clamp01(v / hi)
-                );
-        }
-    }
-
-    return out;
-}
-
-static cv::Mat zSupportCenterImage(
-    const SurfaceMetricsVolume& metrics,
-    int centerZ)
-{
-    cv::Mat out(metrics.height, metrics.width, CV_8U, cv::Scalar(0));
-
-    const size_t sliceSize =
-        static_cast<size_t>(metrics.width) *
-        static_cast<size_t>(metrics.height);
-
-    const size_t offset =
-        static_cast<size_t>(centerZ) * sliceSize;
-
-    for (int y = 0; y < metrics.height; ++y)
-    {
-        uchar* dst = out.ptr<uchar>(y);
-
-        for (int x = 0; x < metrics.width; ++x)
-        {
-            const uint8_t hits =
-                metrics.zSupport[
-                    offset + static_cast<size_t>(y) * metrics.width + x
-            ];
-
-            dst[x] = cv::saturate_cast<uchar>(
-                255.0f *
-                static_cast<float>(hits) /
-                static_cast<float>(2 * Z_SUPPORT_RADIUS)
-                );
-        }
-    }
-
-    return out;
-}
-
-static cv::Mat makeGradientCenterImage(
+static std::vector<float> collectGradientNoiseSamples(
     const GradientVolume& gradient,
-    int centerZ)
+    const std::vector<uint8_t>& roi,
+    int strideXY = 3)
 {
-    cv::Mat values(
-        gradient.height,
-        gradient.width,
-        CV_32F,
-        cv::Scalar(0)
-        );
-
-    for (int y = 0; y < gradient.height; ++y)
-    {
-        float* dst = values.ptr<float>(y);
-
-        for (int x = 0; x < gradient.width; ++x)
-            dst[x] = gradient.at(x, y, centerZ).mag;
-    }
-
     std::vector<float> samples;
-    samples.reserve(
-        static_cast<size_t>(gradient.width / 2 + 1) *
-        static_cast<size_t>(gradient.height / 2 + 1)
-        );
-
-    for (int y = 0; y < gradient.height; y += 2)
-    {
-        const float* row = values.ptr<float>(y);
-        for (int x = 0; x < gradient.width; x += 2)
-            samples.push_back(row[x]);
-    }
-
-    const float hi = std::max(percentile(samples, 99.5f), 1e-12f);
-
-    cv::Mat out(values.size(), CV_8U, cv::Scalar(0));
-
-    for (int y = 0; y < values.rows; ++y)
-    {
-        const float* src = values.ptr<float>(y);
-        uchar* dst = out.ptr<uchar>(y);
-
-        for (int x = 0; x < values.cols; ++x)
-            dst[x] = cv::saturate_cast<uchar>(255.0f * clamp01(src[x] / hi));
-    }
-
-    return out;
-}
-
-static cv::Mat makeNmsCenterImage(
-    const GradientVolume& gradient,
-    const std::vector<uint8_t>& nms,
-    int centerZ)
-{
-    cv::Mat values(
-        gradient.height,
-        gradient.width,
-        CV_32F,
-        cv::Scalar(0)
-        );
 
     const size_t sliceSize =
         static_cast<size_t>(gradient.width) *
         static_cast<size_t>(gradient.height);
 
-    for (int y = 0; y < gradient.height; ++y)
+    for (int z = 0; z < gradient.depth; ++z)
     {
-        float* dst = values.ptr<float>(y);
-
-        for (int x = 0; x < gradient.width; ++x)
+        for (int y = 0; y < gradient.height; y += strideXY)
         {
-            const size_t idx =
-                static_cast<size_t>(centerZ) * sliceSize +
-                static_cast<size_t>(y) * gradient.width + x;
+            for (int x = 0; x < gradient.width; x += strideXY)
+            {
+                const size_t idx =
+                    static_cast<size_t>(z) * sliceSize +
+                    static_cast<size_t>(y) * gradient.width +
+                    static_cast<size_t>(x);
 
-            if (nms[idx] != 0)
-                dst[x] = gradient.data[idx].mag;
+                if (roi[idx] != 0)
+                    samples.push_back(gradient.data[idx].mag);
+            }
         }
     }
 
-    std::vector<float> samples;
-    samples.reserve(static_cast<size_t>(gradient.width * gradient.height / 4));
+    return samples;
+}
 
-    for (int y = 0; y < values.rows; y += 2)
+// ============================================================
+// DETECTOR 1: GLOBAL 3D CANNY HYSTERESIS
+// ============================================================
+
+static std::vector<uint8_t> hysteresisGlobalGradient(
+    const GradientVolume& gradient,
+    const std::vector<uint8_t>& nms,
+    const std::vector<uint8_t>& seedROI,
+    const std::vector<uint8_t>& supportROI,
+    float lowThreshold,
+    float highThreshold)
+{
+    std::cout << "Running ordinary/global 3D Canny hysteresis..."
+              << std::endl;
+
+    const int width = gradient.width;
+    const int height = gradient.height;
+    const int depth = gradient.depth;
+
+    const size_t total = gradient.data.size();
+    const size_t sliceSize =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+
+    std::vector<uint8_t> accepted(total, 0);
+    std::vector<uint32_t> queue;
+    queue.reserve(total / 50 + 1024);
+
+    // Strong edges may seed only near the object.  This is the key defence
+    // against unrelated strong reconstruction streaks far from the part.
+    for (size_t idx = 0; idx < total; ++idx)
     {
-        const float* row = values.ptr<float>(y);
-        for (int x = 0; x < values.cols; x += 2)
+        if (nms[idx] == 0 || seedROI[idx] == 0)
+            continue;
+
+        if (gradient.data[idx].mag >= highThreshold)
+        {
+            accepted[idx] = 1;
+            queue.push_back(static_cast<uint32_t>(idx));
+        }
+    }
+
+    size_t head = 0;
+
+    while (head < queue.size())
+    {
+        const size_t idx = queue[head++];
+
+        const int z = static_cast<int>(idx / sliceSize);
+        const size_t rem = idx - static_cast<size_t>(z) * sliceSize;
+        const int y = static_cast<int>(rem / static_cast<size_t>(width));
+        const int x = static_cast<int>(rem % static_cast<size_t>(width));
+
+        for (int dz = -1; dz <= 1; ++dz)
+        {
+            const int zz = z + dz;
+            if (zz < 0 || zz >= depth)
+                continue;
+
+            for (int dy = -1; dy <= 1; ++dy)
+            {
+                const int yy = y + dy;
+                if (yy < 0 || yy >= height)
+                    continue;
+
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    if (dx == 0 && dy == 0 && dz == 0)
+                        continue;
+
+                    const int xx = x + dx;
+                    if (xx < 0 || xx >= width)
+                        continue;
+
+                    const size_t nidx =
+                        static_cast<size_t>(zz) * sliceSize +
+                        static_cast<size_t>(yy) * width +
+                        static_cast<size_t>(xx);
+
+                    if (accepted[nidx] != 0 ||
+                        nms[nidx] == 0 ||
+                        supportROI[nidx] == 0)
+                    {
+                        continue;
+                    }
+
+                    if (gradient.data[nidx].mag >= lowThreshold)
+                    {
+                        accepted[nidx] = 1;
+                        queue.push_back(static_cast<uint32_t>(nidx));
+                    }
+                }
+            }
+        }
+    }
+
+    return accepted;
+}
+
+// ============================================================
+// DETECTOR 2: ADAPTIVE OTSU THRESHOLD GRID
+// ============================================================
+
+static AdaptiveThresholdGrid buildAdaptiveThresholdGrid(
+    const GradientVolume& gradient,
+    const std::vector<uint8_t>& nms,
+    const std::vector<uint8_t>& supportROI,
+    float globalHigh)
+{
+    std::cout << "Building adaptive Otsu threshold field..."
+              << std::endl;
+
+    AdaptiveThresholdGrid grid;
+    grid.tilesX =
+        (gradient.width + ADAPT_TILE_SIZE - 1) / ADAPT_TILE_SIZE;
+    grid.tilesY =
+        (gradient.height + ADAPT_TILE_SIZE - 1) / ADAPT_TILE_SIZE;
+    grid.depth = gradient.depth;
+
+    const size_t gridSize =
+        static_cast<size_t>(grid.tilesX) *
+        static_cast<size_t>(grid.tilesY) *
+        static_cast<size_t>(grid.depth);
+
+    grid.low.assign(gridSize, 0.0f);
+    grid.high.assign(gridSize, 0.0f);
+
+    const size_t sliceSize =
+        static_cast<size_t>(gradient.width) *
+        static_cast<size_t>(gradient.height);
+
+    const float safeGlobalHigh = std::max(globalHigh, 1e-12f);
+
+    for (int z = 0; z < grid.depth; ++z)
+    {
+        std::cout << "\rAdaptive Otsu statistics: slice "
+                  << (FIRST_SLICE + z)
+                  << " / " << LAST_SLICE
+                  << std::flush;
+
+        for (int ty = 0; ty < grid.tilesY; ++ty)
+        {
+            for (int tx = 0; tx < grid.tilesX; ++tx)
+            {
+                const int baseX0 = tx * ADAPT_TILE_SIZE;
+                const int baseY0 = ty * ADAPT_TILE_SIZE;
+                const int baseX1 =
+                    std::min(gradient.width,
+                             (tx + 1) * ADAPT_TILE_SIZE);
+                const int baseY1 =
+                    std::min(gradient.height,
+                             (ty + 1) * ADAPT_TILE_SIZE);
+
+                const int x0 =
+                    std::max(1, baseX0 - ADAPT_TILE_MARGIN);
+                const int y0 =
+                    std::max(1, baseY0 - ADAPT_TILE_MARGIN);
+                const int x1 =
+                    std::min(gradient.width - 1,
+                             baseX1 + ADAPT_TILE_MARGIN);
+                const int y1 =
+                    std::min(gradient.height - 1,
+                             baseY1 + ADAPT_TILE_MARGIN);
+
+                const int z0 = std::max(0, z - ADAPT_Z_RADIUS);
+                const int z1 = std::min(grid.depth - 1,
+                                        z + ADAPT_Z_RADIUS);
+
+                std::vector<float> localNms;
+                localNms.reserve(2048);
+
+                for (int zz = z0; zz <= z1; ++zz)
+                {
+                    for (int y = y0; y < y1; y += ADAPT_SAMPLE_STRIDE)
+                    {
+                        for (int x = x0; x < x1; x += ADAPT_SAMPLE_STRIDE)
+                        {
+                            const size_t idx =
+                                static_cast<size_t>(zz) * sliceSize +
+                                static_cast<size_t>(y) * gradient.width +
+                                static_cast<size_t>(x);
+
+                            if (supportROI[idx] == 0 || nms[idx] == 0)
+                                continue;
+
+                            const float g = gradient.data[idx].mag;
+                            if (std::isfinite(g) && g > 0.0f)
+                                localNms.push_back(g);
+                        }
+                    }
+                }
+
+                float localHigh = safeGlobalHigh;
+
+                if (static_cast<int>(localNms.size()) >= ADAPT_MIN_SAMPLES)
+                {
+                    localHigh = otsuThresholdFloatSamples(
+                        localNms,
+                        ADAPT_OTSU_BINS
+                        );
+
+                    if (!std::isfinite(localHigh) || localHigh <= 1e-12f)
+                        localHigh = safeGlobalHigh;
+                }
+
+                // More local samples -> trust the local histogram more.
+                const float sampleReliability = clamp01(
+                    static_cast<float>(localNms.size()) /
+                    static_cast<float>(std::max(1, ADAPT_MIN_SAMPLES * 8))
+                    );
+
+                const float blend =
+                    ADAPT_LOCAL_BLEND_MIN +
+                    (ADAPT_LOCAL_BLEND_MAX - ADAPT_LOCAL_BLEND_MIN) *
+                        sampleReliability;
+
+                float high =
+                    (1.0f - blend) * safeGlobalHigh +
+                    blend * localHigh;
+
+                // Literature-driven adaptive thresholding, but with a global
+                // floor to prevent near-zero thresholds in quiet background.
+                high = std::clamp(
+                    high,
+                    safeGlobalHigh * ADAPT_GLOBAL_FLOOR_RATIO,
+                    safeGlobalHigh * ADAPT_GLOBAL_CEIL_RATIO
+                    );
+
+                const float low =
+                    high * ADAPT_LOW_HIGH_RATIO;
+
+                const size_t gidx = grid.index(tx, ty, z);
+                grid.low[gidx] = low;
+                grid.high[gidx] = high;
+            }
+        }
+    }
+
+    std::cout << std::endl;
+
+    // Smooth the threshold grid to avoid block seams.  This does not alter
+    // the underlying gradient/NMS; it only regularises local threshold choice.
+    std::vector<float> lowSmoothed(grid.low.size(), 0.0f);
+    std::vector<float> highSmoothed(grid.high.size(), 0.0f);
+
+    for (int z = 0; z < grid.depth; ++z)
+    {
+        for (int ty = 0; ty < grid.tilesY; ++ty)
+        {
+            for (int tx = 0; tx < grid.tilesX; ++tx)
+            {
+                double sumLow = 0.0;
+                double sumHigh = 0.0;
+                int count = 0;
+
+                for (int dz = -ADAPT_GRID_SMOOTH_RADIUS_Z;
+                     dz <= ADAPT_GRID_SMOOTH_RADIUS_Z;
+                     ++dz)
+                {
+                    const int zz = z + dz;
+                    if (zz < 0 || zz >= grid.depth)
+                        continue;
+
+                    for (int dy = -ADAPT_GRID_SMOOTH_RADIUS_XY;
+                         dy <= ADAPT_GRID_SMOOTH_RADIUS_XY;
+                         ++dy)
+                    {
+                        const int yy = ty + dy;
+                        if (yy < 0 || yy >= grid.tilesY)
+                            continue;
+
+                        for (int dx = -ADAPT_GRID_SMOOTH_RADIUS_XY;
+                             dx <= ADAPT_GRID_SMOOTH_RADIUS_XY;
+                             ++dx)
+                        {
+                            const int xx = tx + dx;
+                            if (xx < 0 || xx >= grid.tilesX)
+                                continue;
+
+                            const size_t idx = grid.index(xx, yy, zz);
+                            sumLow += grid.low[idx];
+                            sumHigh += grid.high[idx];
+                            ++count;
+                        }
+                    }
+                }
+
+                const size_t idx = grid.index(tx, ty, z);
+                lowSmoothed[idx] =
+                    static_cast<float>(sumLow / std::max(count, 1));
+                highSmoothed[idx] =
+                    static_cast<float>(sumHigh / std::max(count, 1));
+            }
+        }
+    }
+
+    grid.low.swap(lowSmoothed);
+    grid.high.swap(highSmoothed);
+
+    return grid;
+}
+
+static std::vector<uint8_t> hysteresisAdaptiveGradient(
+    const GradientVolume& gradient,
+    const std::vector<uint8_t>& nms,
+    const std::vector<uint8_t>& seedROI,
+    const std::vector<uint8_t>& supportROI,
+    const AdaptiveThresholdGrid& grid)
+{
+    std::cout << "Running adaptive/Otsu 3D Canny hysteresis..."
+              << std::endl;
+
+    const int width = gradient.width;
+    const int height = gradient.height;
+    const int depth = gradient.depth;
+
+    const size_t total = gradient.data.size();
+    const size_t sliceSize =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+
+    std::vector<uint8_t> accepted(total, 0);
+    std::vector<uint32_t> queue;
+    queue.reserve(total / 50 + 1024);
+
+    for (int z = 0; z < depth; ++z)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                const size_t idx =
+                    static_cast<size_t>(z) * sliceSize +
+                    static_cast<size_t>(y) * width +
+                    static_cast<size_t>(x);
+
+                if (nms[idx] == 0 || seedROI[idx] == 0)
+                    continue;
+
+                if (gradient.data[idx].mag >= grid.highAt(x, y, z))
+                {
+                    accepted[idx] = 1;
+                    queue.push_back(static_cast<uint32_t>(idx));
+                }
+            }
+        }
+    }
+
+    size_t head = 0;
+
+    while (head < queue.size())
+    {
+        const size_t idx = queue[head++];
+
+        const int z = static_cast<int>(idx / sliceSize);
+        const size_t rem = idx - static_cast<size_t>(z) * sliceSize;
+        const int y = static_cast<int>(rem / static_cast<size_t>(width));
+        const int x = static_cast<int>(rem % static_cast<size_t>(width));
+
+        for (int dz = -1; dz <= 1; ++dz)
+        {
+            const int zz = z + dz;
+            if (zz < 0 || zz >= depth)
+                continue;
+
+            for (int dy = -1; dy <= 1; ++dy)
+            {
+                const int yy = y + dy;
+                if (yy < 0 || yy >= height)
+                    continue;
+
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    if (dx == 0 && dy == 0 && dz == 0)
+                        continue;
+
+                    const int xx = x + dx;
+                    if (xx < 0 || xx >= width)
+                        continue;
+
+                    const size_t nidx =
+                        static_cast<size_t>(zz) * sliceSize +
+                        static_cast<size_t>(yy) * width +
+                        static_cast<size_t>(xx);
+
+                    if (accepted[nidx] != 0 ||
+                        nms[nidx] == 0 ||
+                        supportROI[nidx] == 0)
+                    {
+                        continue;
+                    }
+
+                    if (gradient.data[nidx].mag >=
+                        grid.lowAt(xx, yy, zz))
+                    {
+                        accepted[nidx] = 1;
+                        queue.push_back(static_cast<uint32_t>(nidx));
+                    }
+                }
+            }
+        }
+    }
+
+    return accepted;
+}
+
+// ============================================================
+// PHASE CONGRUENCY FILTER BANK
+// ============================================================
+
+static PhaseFilterBank buildPhaseFilterBank(int rows, int cols)
+{
+    std::cout << "Building Log-Gabor phase-congruency filter bank..."
+              << std::endl;
+
+    PhaseFilterBank bank;
+    bank.originalRows = rows;
+    bank.originalCols = cols;
+    bank.paddedRows = cv::getOptimalDFTSize(rows);
+    bank.paddedCols = cv::getOptimalDFTSize(cols);
+
+    cv::Mat radius(bank.paddedRows, bank.paddedCols, CV_32F);
+    cv::Mat theta(bank.paddedRows, bank.paddedCols, CV_32F);
+    cv::Mat lowpass(bank.paddedRows, bank.paddedCols, CV_32F);
+
+    constexpr float PI = 3.14159265358979323846f;
+
+    for (int y = 0; y < bank.paddedRows; ++y)
+    {
+        float* rRow = radius.ptr<float>(y);
+        float* tRow = theta.ptr<float>(y);
+        float* lRow = lowpass.ptr<float>(y);
+
+        const float fy =
+            (y <= bank.paddedRows / 2)
+                ? static_cast<float>(y) /
+                      static_cast<float>(bank.paddedRows)
+                : static_cast<float>(y - bank.paddedRows) /
+                      static_cast<float>(bank.paddedRows);
+
+        for (int x = 0; x < bank.paddedCols; ++x)
+        {
+            const float fx =
+                (x <= bank.paddedCols / 2)
+                    ? static_cast<float>(x) /
+                          static_cast<float>(bank.paddedCols)
+                    : static_cast<float>(x - bank.paddedCols) /
+                          static_cast<float>(bank.paddedCols);
+
+            const float r = std::sqrt(fx * fx + fy * fy);
+            rRow[x] = r;
+            tRow[x] = std::atan2(-fy, fx);
+
+            // Butterworth-like low-pass used only to tame the DFT corners.
+            const float ratio = r / 0.45f;
+            lRow[x] =
+                1.0f /
+                (1.0f + std::pow(std::max(ratio, 0.0f), 30.0f));
+        }
+    }
+
+    radius.at<float>(0, 0) = 1.0f;
+
+    bank.logGabor.resize(PC_NSCALE);
+
+    const float logSigma = std::log(PC_SIGMA_ON_F);
+    const float denom = 2.0f * logSigma * logSigma;
+
+    for (int s = 0; s < PC_NSCALE; ++s)
+    {
+        const float wavelength =
+            PC_MIN_WAVELENGTH *
+            std::pow(PC_MULT, static_cast<float>(s));
+
+        const float fo = 1.0f / wavelength;
+
+        cv::Mat lg(bank.paddedRows, bank.paddedCols, CV_32F);
+
+        for (int y = 0; y < bank.paddedRows; ++y)
+        {
+            const float* rRow = radius.ptr<float>(y);
+            const float* lRow = lowpass.ptr<float>(y);
+            float* gRow = lg.ptr<float>(y);
+
+            for (int x = 0; x < bank.paddedCols; ++x)
+            {
+                const float lr = std::log(rRow[x] / fo);
+                gRow[x] =
+                    std::exp(-(lr * lr) / denom) * lRow[x];
+            }
+        }
+
+        lg.at<float>(0, 0) = 0.0f;
+        bank.logGabor[s] = std::move(lg);
+    }
+
+    bank.spread.resize(PC_NORIENT);
+
+    for (int o = 0; o < PC_NORIENT; ++o)
+    {
+        const float angle =
+            static_cast<float>(o) * PI /
+            static_cast<float>(PC_NORIENT);
+
+        const float sinA = std::sin(angle);
+        const float cosA = std::cos(angle);
+
+        cv::Mat spread(bank.paddedRows, bank.paddedCols, CV_32F);
+
+        for (int y = 0; y < bank.paddedRows; ++y)
+        {
+            const float* tRow = theta.ptr<float>(y);
+            float* sRow = spread.ptr<float>(y);
+
+            for (int x = 0; x < bank.paddedCols; ++x)
+            {
+                const float th = tRow[x];
+                const float sinT = std::sin(th);
+                const float cosT = std::cos(th);
+
+                const float ds = sinT * cosA - cosT * sinA;
+                const float dc = cosT * cosA + sinT * sinA;
+
+                float dtheta = std::abs(std::atan2(ds, dc));
+                dtheta =
+                    std::min(
+                        dtheta *
+                            static_cast<float>(PC_NORIENT) / 2.0f,
+                        PI
+                        );
+
+                sRow[x] = 0.5f * (std::cos(dtheta) + 1.0f);
+            }
+        }
+
+        bank.spread[o] = std::move(spread);
+    }
+
+    return bank;
+}
+
+static float sampleMatBilinear(
+    const cv::Mat& image,
+    float x,
+    float y)
+{
+    if (x < 0.0f || y < 0.0f ||
+        x >= static_cast<float>(image.cols - 1) ||
+        y >= static_cast<float>(image.rows - 1))
+    {
+        return 0.0f;
+    }
+
+    const int x0 = static_cast<int>(std::floor(x));
+    const int y0 = static_cast<int>(std::floor(y));
+    const int x1 = x0 + 1;
+    const int y1 = y0 + 1;
+
+    const float tx = x - static_cast<float>(x0);
+    const float ty = y - static_cast<float>(y0);
+
+    const float v00 = image.at<float>(y0, x0);
+    const float v10 = image.at<float>(y0, x1);
+    const float v01 = image.at<float>(y1, x0);
+    const float v11 = image.at<float>(y1, x1);
+
+    const float v0 = v00 * (1.0f - tx) + v10 * tx;
+    const float v1 = v01 * (1.0f - tx) + v11 * tx;
+
+    return v0 * (1.0f - ty) + v1 * ty;
+}
+
+static float estimateRayleighTau(const cv::Mat& amplitude)
+{
+    std::vector<float> samples;
+
+    const int border = std::min(
+        PC_NOISE_BORDER,
+        std::max(0, std::min(amplitude.rows, amplitude.cols) / 8)
+        );
+
+    for (int y = border;
+         y < amplitude.rows - border;
+         y += PC_NOISE_SAMPLE_STRIDE)
+    {
+        const float* a = amplitude.ptr<float>(y);
+
+        for (int x = border;
+             x < amplitude.cols - border;
+             x += PC_NOISE_SAMPLE_STRIDE)
+        {
+            const float v = a[x];
+            if (std::isfinite(v) && v >= 0.0f)
+                samples.push_back(v);
+        }
+    }
+
+    if (samples.empty())
+        return 0.0f;
+
+    const float med = percentile(samples, 50.0f);
+
+    // Kovesi's noiseMethod = -1:
+    // median(Rayleigh) = tau * sqrt(log(4)).
+    return med / std::sqrt(std::log(4.0f));
+}
+
+static PhaseCongruencyResult computePhaseCongruency2D(
+    const cv::Mat& input,
+    const cv::Mat& roiMask,
+    const PhaseFilterBank& bank)
+{
+    CV_Assert(input.type() == CV_32F);
+    CV_Assert(roiMask.type() == CV_8U);
+
+    cv::Mat padded;
+    cv::copyMakeBorder(
+        input,
+        padded,
+        0,
+        bank.paddedRows - input.rows,
+        0,
+        bank.paddedCols - input.cols,
+        cv::BORDER_REFLECT_101
+        );
+
+    cv::Mat spectrum;
+    cv::dft(padded, spectrum, cv::DFT_COMPLEX_OUTPUT);
+
+    std::vector<cv::Mat> spectrumPlanes;
+    cv::split(spectrum, spectrumPlanes);
+
+    cv::Mat covx2(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat covy2(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat covxy(input.size(), CV_32F, cv::Scalar(0));
+
+    cv::Mat energyEven(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat energyOddX(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat energyOddY(input.size(), CV_32F, cv::Scalar(0));
+
+    float noiseThresholdSum = 0.0f;
+
+    constexpr float PI = 3.14159265358979323846f;
+    const cv::Rect crop(0, 0, input.cols, input.rows);
+
+    for (int o = 0; o < PC_NORIENT; ++o)
+    {
+        const float theta =
+            static_cast<float>(o) * PI /
+            static_cast<float>(PC_NORIENT);
+
+        cv::Mat sumE(input.size(), CV_32F, cv::Scalar(0));
+        cv::Mat sumO(input.size(), CV_32F, cv::Scalar(0));
+        cv::Mat sumAn(input.size(), CV_32F, cv::Scalar(0));
+        cv::Mat maxAn(input.size(), CV_32F, cv::Scalar(0));
+
+        std::vector<cv::Mat> evenResponses;
+        std::vector<cv::Mat> oddResponses;
+        evenResponses.reserve(PC_NSCALE);
+        oddResponses.reserve(PC_NSCALE);
+
+        float tau = 0.0f;
+
+        for (int scale = 0; scale < PC_NSCALE; ++scale)
+        {
+            const cv::Mat filter =
+                bank.logGabor[scale].mul(bank.spread[o]);
+
+            cv::Mat filteredReal = spectrumPlanes[0].mul(filter);
+            cv::Mat filteredImag = spectrumPlanes[1].mul(filter);
+
+            std::vector<cv::Mat> filteredPlanes =
+                {filteredReal, filteredImag};
+
+            cv::Mat filteredSpectrum;
+            cv::merge(filteredPlanes, filteredSpectrum);
+
+            cv::Mat spatialComplex;
+            cv::dft(
+                filteredSpectrum,
+                spatialComplex,
+                cv::DFT_INVERSE |
+                    cv::DFT_SCALE |
+                    cv::DFT_COMPLEX_OUTPUT
+                );
+
+            std::vector<cv::Mat> responsePlanes;
+            cv::split(spatialComplex, responsePlanes);
+
+            cv::Mat even = responsePlanes[0](crop).clone();
+            cv::Mat odd  = responsePlanes[1](crop).clone();
+
+            cv::Mat amplitude;
+            cv::magnitude(even, odd, amplitude);
+
+            sumE += even;
+            sumO += odd;
+            sumAn += amplitude;
+            cv::max(maxAn, amplitude, maxAn);
+
+            if (scale == 0)
+                tau = estimateRayleighTau(amplitude);
+
+            evenResponses.push_back(std::move(even));
+            oddResponses.push_back(std::move(odd));
+        }
+
+        // Kovesi phasecong3: accumulate overall energy vector for feature
+        // orientation and feature type/phase.
+        energyEven += sumE;
+        energyOddX += sumO * std::cos(theta);
+        energyOddY += sumO * std::sin(theta);
+
+        cv::Mat xEnergy;
+        cv::magnitude(sumE, sumO, xEnergy);
+
+        cv::Mat meanE(input.size(), CV_32F);
+        cv::Mat meanO(input.size(), CV_32F);
+
+        for (int y = 0; y < input.rows; ++y)
+        {
+            const float* se = sumE.ptr<float>(y);
+            const float* so = sumO.ptr<float>(y);
+            const float* xe = xEnergy.ptr<float>(y);
+            float* me = meanE.ptr<float>(y);
+            float* mo = meanO.ptr<float>(y);
+
+            for (int x = 0; x < input.cols; ++x)
+            {
+                const float denom = xe[x] + 1e-12f;
+                me[x] = se[x] / denom;
+                mo[x] = so[x] / denom;
+            }
+        }
+
+        cv::Mat energy(input.size(), CV_32F, cv::Scalar(0));
+
+        for (int scale = 0; scale < PC_NSCALE; ++scale)
+        {
+            const cv::Mat& even = evenResponses[scale];
+            const cv::Mat& odd  = oddResponses[scale];
+
+            for (int y = 0; y < input.rows; ++y)
+            {
+                const float* er = even.ptr<float>(y);
+                const float* orow = odd.ptr<float>(y);
+                const float* mer = meanE.ptr<float>(y);
+                const float* mor = meanO.ptr<float>(y);
+                float* en = energy.ptr<float>(y);
+
+                for (int x = 0; x < input.cols; ++x)
+                {
+                    const float dot =
+                        er[x] * mer[x] + orow[x] * mor[x];
+
+                    const float cross = std::abs(
+                        er[x] * mor[x] - orow[x] * mer[x]
+                        );
+
+                    en[x] += dot - cross;
+                }
+            }
+        }
+
+        // Noise compensation from Kovesi: estimate the Rayleigh parameter
+        // from the smallest-scale amplitude and extrapolate through scales.
+        const float invMult = 1.0f / PC_MULT;
+        float scaleSum = 0.0f;
+        float power = 1.0f;
+
+        for (int scale = 0; scale < PC_NSCALE; ++scale)
+        {
+            scaleSum += power;
+            power *= invMult;
+        }
+
+        const float totalTau = tau * scaleSum;
+        const float noiseMean =
+            totalTau * std::sqrt(PI / 2.0f);
+        const float noiseSigma =
+            totalTau * std::sqrt((4.0f - PI) / 2.0f);
+        const float noiseThreshold = std::max(
+            noiseMean + PC_NOISE_K * noiseSigma,
+            0.0f
+            );
+
+        noiseThresholdSum += noiseThreshold;
+
+        cv::Mat pcOrientation(input.size(), CV_32F, cv::Scalar(0));
+
+        for (int y = 0; y < input.rows; ++y)
+        {
+            const float* en = energy.ptr<float>(y);
+            const float* sa = sumAn.ptr<float>(y);
+            const float* ma = maxAn.ptr<float>(y);
+            float* pc = pcOrientation.ptr<float>(y);
+
+            for (int x = 0; x < input.cols; ++x)
+            {
+                const float corrected =
+                    std::max(en[x] - noiseThreshold, 0.0f);
+
+                if (corrected <= 0.0f || sa[x] <= 1e-12f)
+                    continue;
+
+                float width = 0.0f;
+                if (PC_NSCALE > 1 && ma[x] > 1e-12f)
+                {
+                    width =
+                        (sa[x] / (ma[x] + 1e-12f) - 1.0f) /
+                        static_cast<float>(PC_NSCALE - 1);
+                }
+
+                width = clamp01(width);
+
+                const float frequencyWeight =
+                    1.0f /
+                    (1.0f +
+                     std::exp((PC_CUTOFF - width) * PC_GAIN));
+
+                pc[x] = clamp01(
+                    frequencyWeight * corrected /
+                    (sa[x] + 1e-12f)
+                    );
+            }
+        }
+
+        // Kovesi 2003: build covariance of phase congruency over orientation.
+        const float c = std::cos(theta);
+        const float sn = std::sin(theta);
+
+        for (int y = 0; y < input.rows; ++y)
+        {
+            const float* p = pcOrientation.ptr<float>(y);
+            float* xx = covx2.ptr<float>(y);
+            float* yy = covy2.ptr<float>(y);
+            float* xy = covxy.ptr<float>(y);
+
+            for (int x = 0; x < input.cols; ++x)
+            {
+                const float covx = p[x] * c;
+                const float covy = p[x] * sn;
+
+                xx[x] += covx * covx;
+                yy[x] += covy * covy;
+                xy[x] += covx * covy;
+            }
+        }
+    }
+
+    const float orientNorm =
+        static_cast<float>(PC_NORIENT) / 2.0f;
+
+    cv::Mat maximumMoment(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat minimumMoment(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat orientation(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat stepness(input.size(), CV_32F, cv::Scalar(0));
+    cv::Mat edgeScore(input.size(), CV_32F, cv::Scalar(0));
+
+    for (int y = 0; y < input.rows; ++y)
+    {
+        const float* cxx = covx2.ptr<float>(y);
+        const float* cyy = covy2.ptr<float>(y);
+        const float* cxy = covxy.ptr<float>(y);
+
+        const float* ev0 = energyEven.ptr<float>(y);
+        const float* evx = energyOddX.ptr<float>(y);
+        const float* evy = energyOddY.ptr<float>(y);
+        const uchar* roi = roiMask.ptr<uchar>(y);
+
+        float* M = maximumMoment.ptr<float>(y);
+        float* m = minimumMoment.ptr<float>(y);
+        float* ori = orientation.ptr<float>(y);
+        float* st = stepness.ptr<float>(y);
+        float* es = edgeScore.ptr<float>(y);
+
+        for (int x = 0; x < input.cols; ++x)
+        {
+            if (roi[x] == 0)
+                continue;
+
+            const float xx = cxx[x] / orientNorm;
+            const float yy = cyy[x] / orientNorm;
+            const float xy = 4.0f * cxy[x] /
+                             static_cast<float>(PC_NORIENT);
+
+            const float denom = std::sqrt(
+                                    xy * xy + (xx - yy) * (xx - yy)
+                                    ) + 1e-12f;
+
+            const float maxMoment =
+                0.5f * (xx + yy + denom);
+            const float minMoment =
+                0.5f * (xx + yy - denom);
+
+            M[x] = clamp01(maxMoment);
+            m[x] = clamp01(std::max(minMoment, 0.0f));
+
+            float theta = std::atan2(evy[x], evx[x]);
+            if (theta < 0.0f)
+                theta += PI;
+            ori[x] = theta;
+
+            const float oddMagnitude =
+                std::sqrt(evx[x] * evx[x] + evy[x] * evy[x]);
+
+            // Kovesi feature type: 0 = step, +/-pi/2 = bright/dark line.
+            const float featureType =
+                std::atan2(ev0[x], oddMagnitude + 1e-12f);
+
+            const float step = std::pow(
+                std::max(0.0f, std::abs(std::cos(featureType))),
+                PC_STEP_WEIGHT_POWER
+                );
+
+            st[x] = clamp01(step);
+
+            // Edge-like orientation structure has M >> m.  If M and m are
+            // both high the point is more corner/texture-like.  This weighting
+            // uses the same moments introduced by Kovesi rather than adding a
+            // new gradient-amplitude criterion.
+            const float anisotropy = clamp01(
+                (M[x] - m[x]) / (M[x] + 1e-12f)
+                );
+
+            const float stepWeight =
+                PC_STEP_WEIGHT_FLOOR +
+                (1.0f - PC_STEP_WEIGHT_FLOOR) * st[x];
+
+            const float anisotropyWeight =
+                PC_ANISOTROPY_WEIGHT_FLOOR +
+                (1.0f - PC_ANISOTROPY_WEIGHT_FLOOR) * anisotropy;
+
+            es[x] = clamp01(M[x] * stepWeight * anisotropyWeight);
+        }
+    }
+
+    cv::Mat nmsScore(input.size(), CV_32F, cv::Scalar(0));
+
+    for (int y = 1; y < input.rows - 1; ++y)
+    {
+        const float* scoreRow = edgeScore.ptr<float>(y);
+        const float* thetaRow = orientation.ptr<float>(y);
+        const uchar* roiRow = roiMask.ptr<uchar>(y);
+        float* out = nmsScore.ptr<float>(y);
+
+        for (int x = 1; x < input.cols - 1; ++x)
+        {
+            if (roiRow[x] == 0 || scoreRow[x] <= 0.0f)
+                continue;
+
+            // Kovesi orientation: 0 corresponds to a vertical edge, so the
+            // normal direction used by NMS is (cos(theta), -sin(theta)).
+            const float theta = thetaRow[x];
+            const float dx = std::cos(theta) * PC_NMS_STEP;
+            const float dy = -std::sin(theta) * PC_NMS_STEP;
+
+            const float plus = sampleMatBilinear(
+                edgeScore,
+                static_cast<float>(x) + dx,
+                static_cast<float>(y) + dy
+                );
+
+            const float minus = sampleMatBilinear(
+                edgeScore,
+                static_cast<float>(x) - dx,
+                static_cast<float>(y) - dy
+                );
+
+            if (scoreRow[x] >= plus * PC_NMS_PLATEAU_FACTOR &&
+                scoreRow[x] >= minus * PC_NMS_PLATEAU_FACTOR)
+            {
+                out[x] = scoreRow[x];
+            }
+        }
+    }
+
+    PhaseCongruencyResult result;
+    result.pc = std::move(maximumMoment);
+    result.stepness = std::move(stepness);
+    result.edgeScore = std::move(edgeScore);
+    result.nmsScore = std::move(nmsScore);
+    result.meanNoiseThreshold =
+        noiseThresholdSum / static_cast<float>(PC_NORIENT);
+
+    return result;
+}
+
+// ============================================================
+// GENERIC 3D HYSTERESIS FOR PHASE-CONGRUENCY SCORE
+// ============================================================
+
+static std::vector<uint8_t> hysteresisFloatScore3D(
+    const std::vector<float>& score,
+    const std::vector<uint8_t>& seedROI,
+    const std::vector<uint8_t>& supportROI,
+    int width,
+    int height,
+    int depth,
+    float lowThreshold,
+    float highThreshold)
+{
+    const size_t total = score.size();
+    const size_t sliceSize =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+
+    std::vector<uint8_t> accepted(total, 0);
+    std::vector<uint32_t> queue;
+    queue.reserve(total / 50 + 1024);
+
+    for (size_t idx = 0; idx < total; ++idx)
+    {
+        if (seedROI[idx] == 0 || score[idx] <= 0.0f)
+            continue;
+
+        if (score[idx] >= highThreshold)
+        {
+            accepted[idx] = 1;
+            queue.push_back(static_cast<uint32_t>(idx));
+        }
+    }
+
+    size_t head = 0;
+
+    while (head < queue.size())
+    {
+        const size_t idx = queue[head++];
+
+        const int z = static_cast<int>(idx / sliceSize);
+        const size_t rem = idx - static_cast<size_t>(z) * sliceSize;
+        const int y = static_cast<int>(rem / static_cast<size_t>(width));
+        const int x = static_cast<int>(rem % static_cast<size_t>(width));
+
+        for (int dz = -1; dz <= 1; ++dz)
+        {
+            const int zz = z + dz;
+            if (zz < 0 || zz >= depth)
+                continue;
+
+            for (int dy = -1; dy <= 1; ++dy)
+            {
+                const int yy = y + dy;
+                if (yy < 0 || yy >= height)
+                    continue;
+
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    if (dx == 0 && dy == 0 && dz == 0)
+                        continue;
+
+                    const int xx = x + dx;
+                    if (xx < 0 || xx >= width)
+                        continue;
+
+                    const size_t nidx =
+                        static_cast<size_t>(zz) * sliceSize +
+                        static_cast<size_t>(yy) * width +
+                        static_cast<size_t>(xx);
+
+                    if (accepted[nidx] != 0 ||
+                        supportROI[nidx] == 0 ||
+                        score[nidx] < lowThreshold)
+                    {
+                        continue;
+                    }
+
+                    accepted[nidx] = 1;
+                    queue.push_back(static_cast<uint32_t>(nidx));
+                }
+            }
+        }
+    }
+
+    return accepted;
+}
+
+// ============================================================
+// DIAGNOSTIC IMAGE HELPERS
+// ============================================================
+
+static cv::Mat maskSliceFromVolume(
+    const std::vector<uint8_t>& volume,
+    int width,
+    int height,
+    int z)
+{
+    cv::Mat mask(height, width, CV_8U, cv::Scalar(0));
+
+    const size_t sliceSize =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+
+    const uint8_t* src =
+        volume.data() +
+        static_cast<size_t>(z) * sliceSize;
+
+    for (int y = 0; y < height; ++y)
+    {
+        uchar* dst = mask.ptr<uchar>(y);
+
+        for (int x = 0; x < width; ++x)
+        {
+            dst[x] =
+                src[static_cast<size_t>(y) * width + x] != 0
+                    ? 255
+                    : 0;
+        }
+    }
+
+    return mask;
+}
+
+static cv::Mat gradientSlicePreview(
+    const GradientVolume& gradient,
+    const std::vector<uint8_t>& roi,
+    int z)
+{
+    const int width = gradient.width;
+    const int height = gradient.height;
+    const size_t sliceSize =
+        static_cast<size_t>(width) * static_cast<size_t>(height);
+
+    std::vector<float> samples;
+
+    for (int y = 0; y < height; y += 2)
+    {
+        for (int x = 0; x < width; x += 2)
+        {
+            const size_t idx =
+                static_cast<size_t>(z) * sliceSize +
+                static_cast<size_t>(y) * width +
+                static_cast<size_t>(x);
+
+            if (roi[idx] != 0)
+                samples.push_back(gradient.data[idx].mag);
+        }
+    }
+
+    const float hi =
+        std::max(percentile(samples, 99.5f), 1e-12f);
+
+    cv::Mat out(height, width, CV_8U, cv::Scalar(0));
+
+    for (int y = 0; y < height; ++y)
+    {
+        uchar* dst = out.ptr<uchar>(y);
+
+        for (int x = 0; x < width; ++x)
+        {
+            const size_t idx =
+                static_cast<size_t>(z) * sliceSize +
+                static_cast<size_t>(y) * width +
+                static_cast<size_t>(x);
+
+            dst[x] =
+                cv::saturate_cast<uchar>(
+                    255.0f * clamp01(gradient.data[idx].mag / hi)
+                    );
+        }
+    }
+
+    return out;
+}
+
+static cv::Mat floatMapTo8U(
+    const cv::Mat& map,
+    float highPercentile = 99.5f)
+{
+    CV_Assert(map.type() == CV_32F);
+
+    std::vector<float> samples;
+    samples.reserve(
+        static_cast<size_t>((map.rows + 1) / 2) *
+        static_cast<size_t>((map.cols + 1) / 2)
+        );
+
+    for (int y = 0; y < map.rows; y += 2)
+    {
+        const float* row = map.ptr<float>(y);
+        for (int x = 0; x < map.cols; x += 2)
         {
             if (row[x] > 0.0f)
                 samples.push_back(row[x]);
@@ -2798,474 +2591,158 @@ static cv::Mat makeNmsCenterImage(
     }
 
     const float hi =
-        samples.empty() ? 1.0f : std::max(percentile(samples, 99.0f), 1e-12f);
+        std::max(percentile(samples, highPercentile), 1e-8f);
 
-    cv::Mat out(values.size(), CV_8U, cv::Scalar(0));
+    cv::Mat out(map.size(), CV_8U, cv::Scalar(0));
 
-    for (int y = 0; y < values.rows; ++y)
+    for (int y = 0; y < map.rows; ++y)
     {
-        const float* src = values.ptr<float>(y);
+        const float* src = map.ptr<float>(y);
         uchar* dst = out.ptr<uchar>(y);
 
-        for (int x = 0; x < values.cols; ++x)
-            dst[x] = cv::saturate_cast<uchar>(255.0f * clamp01(src[x] / hi));
+        for (int x = 0; x < map.cols; ++x)
+        {
+            dst[x] =
+                cv::saturate_cast<uchar>(
+                    255.0f * clamp01(src[x] / hi)
+                    );
+        }
     }
 
     return out;
 }
 
-// ============================================================
-// TAYLOR SUBVOXEL REFINEMENT - ARTICLE EQUATIONS
-// ============================================================
-
-static bool refineTaylorPoint(
-    const std::vector<float>& volume,
-    int width,
-    int height,
-    int depth,
-    const GradientVolume& gradient,
-    const SurfaceMetricsVolume& metrics,
-    int x,
-    int y,
-    int z,
-    SubvoxelPoint& out)
+static cv::Mat floatMapTo16U01(const cv::Mat& map)
 {
-    // Third derivatives require a two-voxel margin.
-    if (x < 2 || x >= width - 2 ||
-        y < 2 || y >= height - 2 ||
-        z < 2 || z >= depth - 2)
+    CV_Assert(map.type() == CV_32F);
+
+    cv::Mat out(map.size(), CV_16U, cv::Scalar(0));
+
+    for (int y = 0; y < map.rows; ++y)
     {
-        return false;
-    }
+        const float* src = map.ptr<float>(y);
+        uint16_t* dst = out.ptr<uint16_t>(y);
 
-    const GradientVoxel& g = gradient.at(x, y, z);
-    if (g.mag <= 1e-12f)
-        return false;
-
-    const cv::Vec3f n = normalFromGradient(g);
-
-    const double nx = n[0];
-    const double ny = n[1];
-    const double nz = n[2];
-
-    const double hx = SPACING_X;
-    const double hy = SPACING_Y;
-    const double hz = SPACING_Z;
-
-    auto f = [&](int xx, int yy, int zz) -> double
-    {
-        return static_cast<double>(
-            voxelValue(volume, width, height, depth, xx, yy, zz)
-            );
-    };
-
-    const double f0 = f(x, y, z);
-
-    // -------------------- second partials --------------------
-    const double fxx =
-        (f(x + 1, y, z) - 2.0 * f0 + f(x - 1, y, z)) /
-        (hx * hx);
-
-    const double fyy =
-        (f(x, y + 1, z) - 2.0 * f0 + f(x, y - 1, z)) /
-        (hy * hy);
-
-    const double fzz =
-        (f(x, y, z + 1) - 2.0 * f0 + f(x, y, z - 1)) /
-        (hz * hz);
-
-    const double fxy =
-        (f(x + 1, y + 1, z) -
-         f(x + 1, y - 1, z) -
-         f(x - 1, y + 1, z) +
-         f(x - 1, y - 1, z)) /
-        (4.0 * hx * hy);
-
-    const double fxz =
-        (f(x + 1, y, z + 1) -
-         f(x + 1, y, z - 1) -
-         f(x - 1, y, z + 1) +
-         f(x - 1, y, z - 1)) /
-        (4.0 * hx * hz);
-
-    const double fyz =
-        (f(x, y + 1, z + 1) -
-         f(x, y + 1, z - 1) -
-         f(x, y - 1, z + 1) +
-         f(x, y - 1, z - 1)) /
-        (4.0 * hy * hz);
-
-    const double d2 =
-        nx * nx * fxx +
-        2.0 * nx * ny * fxy +
-        2.0 * nx * nz * fxz +
-        ny * ny * fyy +
-        2.0 * ny * nz * fyz +
-        nz * nz * fzz;
-
-    // -------------------- third partials ---------------------
-    const double fxxx =
-        (f(x + 2, y, z) -
-         2.0 * f(x + 1, y, z) +
-         2.0 * f(x - 1, y, z) -
-         f(x - 2, y, z)) /
-        (2.0 * hx * hx * hx);
-
-    const double fyyy =
-        (f(x, y + 2, z) -
-         2.0 * f(x, y + 1, z) +
-         2.0 * f(x, y - 1, z) -
-         f(x, y - 2, z)) /
-        (2.0 * hy * hy * hy);
-
-    const double fzzz =
-        (f(x, y, z + 2) -
-         2.0 * f(x, y, z + 1) +
-         2.0 * f(x, y, z - 1) -
-         f(x, y, z - 2)) /
-        (2.0 * hz * hz * hz);
-
-    auto fxxAt = [&](int xx, int yy, int zz) -> double
-    {
-        const double c = f(xx, yy, zz);
-        return
-            (f(xx + 1, yy, zz) - 2.0 * c + f(xx - 1, yy, zz)) /
-            (hx * hx);
-    };
-
-    auto fyyAt = [&](int xx, int yy, int zz) -> double
-    {
-        const double c = f(xx, yy, zz);
-        return
-            (f(xx, yy + 1, zz) - 2.0 * c + f(xx, yy - 1, zz)) /
-            (hy * hy);
-    };
-
-    auto fzzAt = [&](int xx, int yy, int zz) -> double
-    {
-        const double c = f(xx, yy, zz);
-        return
-            (f(xx, yy, zz + 1) - 2.0 * c + f(xx, yy, zz - 1)) /
-            (hz * hz);
-    };
-
-    const double fxxy =
-        (fxxAt(x, y + 1, z) - fxxAt(x, y - 1, z)) /
-        (2.0 * hy);
-
-    const double fxxz =
-        (fxxAt(x, y, z + 1) - fxxAt(x, y, z - 1)) /
-        (2.0 * hz);
-
-    const double fxyy =
-        (fyyAt(x + 1, y, z) - fyyAt(x - 1, y, z)) /
-        (2.0 * hx);
-
-    const double fxzz =
-        (fzzAt(x + 1, y, z) - fzzAt(x - 1, y, z)) /
-        (2.0 * hx);
-
-    const double fyyz =
-        (fyyAt(x, y, z + 1) - fyyAt(x, y, z - 1)) /
-        (2.0 * hz);
-
-    const double fyzz =
-        (fzzAt(x, y + 1, z) - fzzAt(x, y - 1, z)) /
-        (2.0 * hy);
-
-    const double fxyz =
-        (
-            f(x + 1, y + 1, z + 1) -
-            f(x + 1, y + 1, z - 1) -
-            f(x + 1, y - 1, z + 1) +
-            f(x + 1, y - 1, z - 1) -
-            f(x - 1, y + 1, z + 1) +
-            f(x - 1, y + 1, z - 1) +
-            f(x - 1, y - 1, z + 1) -
-            f(x - 1, y - 1, z - 1)
-            ) /
-        (8.0 * hx * hy * hz);
-
-    const double d3 =
-        nx * nx * nx * fxxx +
-        3.0 * nx * nx * ny * fxxy +
-        3.0 * nx * nx * nz * fxxz +
-        3.0 * nx * ny * ny * fxyy +
-        6.0 * nx * ny * nz * fxyz +
-        3.0 * nx * nz * nz * fxzz +
-        ny * ny * ny * fyyy +
-        3.0 * ny * ny * nz * fyyz +
-        3.0 * ny * nz * nz * fyzz +
-        nz * nz * nz * fzzz;
-
-    if (!std::isfinite(d2) ||
-        !std::isfinite(d3) ||
-        std::abs(d3) < TAYLOR_MIN_ABS_D3)
-    {
-        return false;
-    }
-
-    // At the maximum of the first directional derivative, D3 f < 0.
-    if (TAYLOR_REQUIRE_LOCAL_MAXIMUM && d3 >= 0.0)
-        return false;
-
-    const double tPhysical = -d2 / d3; // micrometres
-
-    if (!std::isfinite(tPhysical))
-        return false;
-
-    const double maxPhysical =
-        static_cast<double>(TAYLOR_MAX_ABS_DISPLACEMENT_VOXELS) *
-        static_cast<double>(
-            std::min({SPACING_X, SPACING_Y, SPACING_Z})
-            );
-
-    if (std::abs(tPhysical) > maxPhysical)
-        return false;
-
-    out.sourceX = x;
-    out.sourceY = y;
-    out.sourceZ = z;
-    out.tPhysicalUm = static_cast<float>(tPhysical);
-
-    out.x =
-        static_cast<float>(
-            static_cast<double>(x) + nx * tPhysical / SPACING_X
-            );
-
-    out.y =
-        static_cast<float>(
-            static_cast<double>(y) + ny * tPhysical / SPACING_Y
-            );
-
-    out.z =
-        static_cast<float>(
-            static_cast<double>(z) + nz * tPhysical / SPACING_Z
-            );
-
-    out.physicalX = out.x * SPACING_X;
-    out.physicalY = out.y * SPACING_Y;
-    out.physicalZ =
-        (static_cast<float>(FIRST_SLICE) + out.z) * SPACING_Z;
-
-    out.gradientMagnitude = g.mag;
-
-    const size_t idx = metrics.index(x, y, z);
-    out.coherence = metrics.coherence[idx];
-    out.contrast = metrics.contrast[idx];
-    out.zSupport = metrics.zSupport[idx];
-    out.surfaceScore = metrics.score[idx];
-    out.refinementType = 1;
-
-    return true;
-}
-
-
-// ============================================================
-// SUBVOXEL FALLBACKS
-// ============================================================
-// The article's Taylor refinement is our preferred position estimator.
-// Numerically, however, D_g^3 can be close to zero or have an unstable
-// sign at a noisy yet otherwise valid Canny point. Dropping that point
-// would re-open a contour. Therefore, for topology preservation only,
-// use a local parabola of |grad f| along the same 3D normal. If that is
-// also unstable, retain the accepted voxel centre.
-// ============================================================
-
-static void fillPointMetadata(
-    const GradientVolume& gradient,
-    const SurfaceMetricsVolume& metrics,
-    int x,
-    int y,
-    int z,
-    SubvoxelPoint& out)
-{
-    const GradientVoxel& g = gradient.at(x, y, z);
-    const size_t idx = metrics.index(x, y, z);
-
-    out.sourceX = x;
-    out.sourceY = y;
-    out.sourceZ = z;
-
-    out.gradientMagnitude = g.mag;
-    out.coherence = metrics.coherence[idx];
-    out.contrast = metrics.contrast[idx];
-    out.zSupport = metrics.zSupport[idx];
-    out.surfaceScore = metrics.score[idx];
-}
-
-static bool refineParabolicGradientPoint(
-    const GradientVolume& gradient,
-    const SurfaceMetricsVolume& metrics,
-    int x,
-    int y,
-    int z,
-    SubvoxelPoint& out)
-{
-    if (x < 1 || x >= gradient.width - 1 ||
-        y < 1 || y >= gradient.height - 1 ||
-        z < 1 || z >= gradient.depth - 1)
-    {
-        return false;
-    }
-
-    const GradientVoxel& g = gradient.at(x, y, z);
-    if (g.mag <= 1e-12f)
-        return false;
-
-    const cv::Vec3f normal = normalFromGradient(g);
-    const cv::Vec3f d = normalVoxelDirection(normal);
-
-    const float m0 = g.mag;
-
-    const float mPlus =
-        sampleMagnitude(
-            gradient,
-            static_cast<float>(x) + d[0],
-            static_cast<float>(y) + d[1],
-            static_cast<float>(z) + d[2]
-            );
-
-    const float mMinus =
-        sampleMagnitude(
-            gradient,
-            static_cast<float>(x) - d[0],
-            static_cast<float>(y) - d[1],
-            static_cast<float>(z) - d[2]
-            );
-
-    const float denominator =
-        mMinus - 2.0f * m0 + mPlus;
-
-    // Concave parabola -> local maximum.
-    if (!std::isfinite(denominator) ||
-        denominator >= -1e-12f)
-    {
-        return false;
-    }
-
-    float delta =
-        0.5f * (mMinus - mPlus) / denominator;
-
-    if (!std::isfinite(delta))
-        return false;
-
-    delta =
-        std::clamp(
-            delta,
-            -PARABOLIC_MAX_ABS_OFFSET,
-            PARABOLIC_MAX_ABS_OFFSET
-            );
-
-    fillPointMetadata(
-        gradient,
-        metrics,
-        x, y, z,
-        out
-        );
-
-    out.x = static_cast<float>(x) + delta * d[0];
-    out.y = static_cast<float>(y) + delta * d[1];
-    out.z = static_cast<float>(z) + delta * d[2];
-
-    const float physicalStep =
-        std::sqrt(
-            (d[0] * SPACING_X) * (d[0] * SPACING_X) +
-            (d[1] * SPACING_Y) * (d[1] * SPACING_Y) +
-            (d[2] * SPACING_Z) * (d[2] * SPACING_Z)
-            );
-
-    out.tPhysicalUm = delta * physicalStep;
-
-    out.physicalX = out.x * SPACING_X;
-    out.physicalY = out.y * SPACING_Y;
-    out.physicalZ =
-        (static_cast<float>(FIRST_SLICE) + out.z) * SPACING_Z;
-
-    out.refinementType = 2;
-
-    return true;
-}
-
-static void keepVoxelCenterPoint(
-    const GradientVolume& gradient,
-    const SurfaceMetricsVolume& metrics,
-    int x,
-    int y,
-    int z,
-    SubvoxelPoint& out)
-{
-    fillPointMetadata(
-        gradient,
-        metrics,
-        x, y, z,
-        out
-        );
-
-    out.tPhysicalUm = 0.0f;
-
-    out.x = static_cast<float>(x);
-    out.y = static_cast<float>(y);
-    out.z = static_cast<float>(z);
-
-    out.physicalX = out.x * SPACING_X;
-    out.physicalY = out.y * SPACING_Y;
-    out.physicalZ =
-        (static_cast<float>(FIRST_SLICE) + out.z) * SPACING_Z;
-
-    out.refinementType = 3;
-}
-
-// ============================================================
-// OPTIONAL SAVE OF ALL ACCEPTED TEST-WINDOW MASKS
-// ============================================================
-
-static void saveAcceptedSlices(
-    const std::vector<uint8_t>& accepted,
-    int width,
-    int height,
-    int depth)
-{
-    if (!SAVE_ACCEPTED_MASK_FOR_ALL_TEST_SLICES)
-        return;
-
-    const fs::path folder =
-        fs::path(OUTPUT_FOLDER) / "accepted_slices";
-
-    fs::create_directories(folder);
-
-    const size_t sliceSize =
-        static_cast<size_t>(width) *
-        static_cast<size_t>(height);
-
-    for (int z = 0; z < depth; ++z)
-    {
-        cv::Mat mask(height, width, CV_8U, cv::Scalar(0));
-
-        const uint8_t* src =
-            accepted.data() +
-            static_cast<size_t>(z) * sliceSize;
-
-        for (int y = 0; y < height; ++y)
+        for (int x = 0; x < map.cols; ++x)
         {
-            uchar* dst = mask.ptr<uchar>(y);
+            dst[x] =
+                static_cast<uint16_t>(
+                    std::lround(65535.0f * clamp01(src[x]))
+                    );
+        }
+    }
 
-            for (int x = 0; x < width; ++x)
+    return out;
+}
+
+static cv::Mat makeOverlay(
+    const cv::Mat& display,
+    const cv::Mat& mask,
+    const cv::Vec3b& color)
+{
+    cv::Mat overlay;
+    cv::cvtColor(display, overlay, cv::COLOR_GRAY2BGR);
+
+    for (int y = 0; y < display.rows; ++y)
+    {
+        const uchar* m = mask.ptr<uchar>(y);
+        cv::Vec3b* dst = overlay.ptr<cv::Vec3b>(y);
+
+        for (int x = 0; x < display.cols; ++x)
+        {
+            if (m[x] != 0)
+                dst[x] = color;
+        }
+    }
+
+    return overlay;
+}
+
+static cv::Mat makeCombinedOverlay(
+    const cv::Mat& display,
+    const cv::Mat& standard,
+    const cv::Mat& adaptive,
+    const cv::Mat& phase)
+{
+    cv::Mat overlay;
+    cv::cvtColor(display, overlay, cv::COLOR_GRAY2BGR);
+
+    for (int y = 0; y < display.rows; ++y)
+    {
+        const uchar* s = standard.ptr<uchar>(y);
+        const uchar* a = adaptive.ptr<uchar>(y);
+        const uchar* p = phase.ptr<uchar>(y);
+        cv::Vec3b* dst = overlay.ptr<cv::Vec3b>(y);
+
+        for (int x = 0; x < display.cols; ++x)
+        {
+            const int code =
+                (s[x] != 0 ? 1 : 0) |
+                (a[x] != 0 ? 2 : 0) |
+                (p[x] != 0 ? 4 : 0);
+
+            switch (code)
             {
-                if (src[static_cast<size_t>(y) * width + x] != 0)
-                    dst[x] = 255;
+            case 1: // only ordinary Canny = red
+                dst[x] = cv::Vec3b(0, 0, 255);
+                break;
+            case 2: // only adaptive Canny = green
+                dst[x] = cv::Vec3b(0, 255, 0);
+                break;
+            case 3: // ordinary + adaptive = yellow
+                dst[x] = cv::Vec3b(0, 255, 255);
+                break;
+            case 4: // only PC = blue
+                dst[x] = cv::Vec3b(255, 0, 0);
+                break;
+            case 5: // ordinary + PC = magenta
+                dst[x] = cv::Vec3b(255, 0, 255);
+                break;
+            case 6: // adaptive + PC = cyan
+                dst[x] = cv::Vec3b(255, 255, 0);
+                break;
+            case 7: // all three = white
+                dst[x] = cv::Vec3b(255, 255, 255);
+                break;
+            default:
+                break;
             }
         }
-
-        std::ostringstream name;
-        name << "accepted_"
-             << std::setw(4)
-             << std::setfill('0')
-             << (FIRST_SLICE + z)
-             << ".png";
-
-        cv::imwrite((folder / name.str()).string(), mask);
     }
+
+    return overlay;
+}
+
+static long long countMask(const cv::Mat& mask)
+{
+    return static_cast<long long>(cv::countNonZero(mask));
+}
+
+static double jaccard(const cv::Mat& a, const cv::Mat& b)
+{
+    cv::Mat inter;
+    cv::Mat uni;
+    cv::bitwise_and(a, b, inter);
+    cv::bitwise_or(a, b, uni);
+
+    const double i = static_cast<double>(cv::countNonZero(inter));
+    const double u = static_cast<double>(cv::countNonZero(uni));
+
+    return u > 0.0 ? i / u : 1.0;
+}
+
+static void createOutputFolders()
+{
+    fs::create_directories(OUTPUT_FOLDER);
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "00_original");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "01_roi");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "02_gradient");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "03_canny_standard");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "04_canny_adaptive");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "05_phase_congruency_map");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "06_phase_congruency_nms");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "07_phase_congruency_edges");
+    fs::create_directories(fs::path(OUTPUT_FOLDER) / "08_overlays");
 }
 
 // ============================================================
@@ -3276,7 +2753,7 @@ int main()
 {
     try
     {
-        fs::create_directories(OUTPUT_FOLDER);
+        createOutputFolders();
 
         const std::vector<fs::path> files = collectTiffFiles(INPUT_FOLDER);
 
@@ -3297,12 +2774,6 @@ int main()
             return 1;
         }
 
-        const int centerZ = CENTER_SLICE - FIRST_SLICE;
-
-        cv::Mat centerOriginal;
-        if (!loadFloatSlice(files[CENTER_SLICE], centerOriginal))
-            return 1;
-
         int width = 0;
         int height = 0;
         int depth = 0;
@@ -3321,692 +2792,608 @@ int main()
 
         gaussianBlurZInPlace(volume, width, height, depth);
 
-        // ----------------------------------------------------
-        // ARTICLE CORE: 3D GRADIENT -> 3D NMS
-        // ----------------------------------------------------
+        const size_t sliceSize =
+            static_cast<size_t>(width) *
+            static_cast<size_t>(height);
 
-        GradientVolume gradient =
-            computeGradient3D(volume, width, height, depth);
+        const size_t total =
+            sliceSize * static_cast<size_t>(depth);
 
-        std::vector<float> gradientSamples;
-        std::vector<uint8_t> nms =
-            computeNMS3D(gradient, gradientSamples);
-
-        if (gradientSamples.empty())
-        {
-            std::cerr << "3D NMS produced no candidates." << std::endl;
-            return 1;
-        }
-
-        // ----------------------------------------------------
-        // BROAD 3D SUPPORT ROI
-        // ----------------------------------------------------
-        // It is intentionally filled and dilated. It does NOT locate
-        // the surface. It only removes remote reconstruction field
-        // from the expensive quality calculations/hysteresis.
-
+        std::vector<uint8_t> seedROI3D;
         std::vector<uint8_t> broadROI3D;
-        std::vector<uint8_t> coreROI3D;
 
         buildROIVolumes(
             volume,
             width,
             height,
             depth,
-            broadROI3D,
-            coreROI3D
+            seedROI3D,
+            broadROI3D
             );
 
-        gradientSamples =
-            collectNmsGradientSamplesInROI(
+        // ----------------------------------------------------
+        // DETECTORS 1 AND 2 SHARE THE EXACT SAME 3D GRADIENT + NMS
+        // ----------------------------------------------------
+
+        GradientVolume gradient =
+            computeGradient3D(volume, width, height, depth);
+
+        std::vector<uint8_t> nms = computeNMS3D(gradient);
+
+        // Threshold statistics are taken from the tighter seed ROI so that
+        // remote reconstruction texture cannot dominate the histogram.
+        std::vector<float> globalNmsSamples =
+            collectNmsGradientSamples(
                 gradient,
                 nms,
-                broadROI3D
+                seedROI3D,
+                2
                 );
 
-        if (gradientSamples.empty())
+        if (globalNmsSamples.empty())
         {
-            std::cerr << "Broad ROI contains no NMS candidates." << std::endl;
+            std::cerr << "No 3D-NMS candidates inside the seed ROI."
+                      << std::endl;
             return 1;
         }
 
+        const float standardHigh =
+            percentile(
+                globalNmsSamples,
+                STANDARD_HIGH_PERCENTILE
+                );
+
+        const float standardLow =
+            standardHigh * STANDARD_LOW_HIGH_RATIO;
+
+        float adaptiveGlobalHigh =
+            otsuThresholdFloatSamples(
+                globalNmsSamples,
+                ADAPT_OTSU_BINS
+                );
+
+        if (!std::isfinite(adaptiveGlobalHigh) ||
+            adaptiveGlobalHigh <= 1e-12f)
+        {
+            adaptiveGlobalHigh =
+                percentile(globalNmsSamples, 80.0f);
+        }
+
+        std::cout
+            << "\nOrdinary 3D Canny thresholds:\n"
+            << "  high = " << standardHigh << '\n'
+            << "  low  = " << standardLow << "\n\n"
+            << "Adaptive-Canny global Otsu reference:\n"
+            << "  high = " << adaptiveGlobalHigh << '\n'
+            << "  low  = "
+            << adaptiveGlobalHigh * ADAPT_LOW_HIGH_RATIO
+            << std::endl;
+
+        std::vector<uint8_t> cannyStandard =
+            hysteresisGlobalGradient(
+                gradient,
+                nms,
+                seedROI3D,
+                broadROI3D,
+                standardLow,
+                standardHigh
+                );
+
+        AdaptiveThresholdGrid adaptiveGrid =
+            buildAdaptiveThresholdGrid(
+                gradient,
+                nms,
+                seedROI3D,
+                adaptiveGlobalHigh
+                );
+
+        std::vector<uint8_t> cannyAdaptive =
+            hysteresisAdaptiveGradient(
+                gradient,
+                nms,
+                seedROI3D,
+                broadROI3D,
+                adaptiveGrid
+                );
+
+        // Save gradient previews now, before releasing the large gradient.
+        if (SAVE_ALL_SLICE_DIAGNOSTICS)
+        {
+            for (int z = 0; z < depth; ++z)
+            {
+                const int globalZ = FIRST_SLICE + z;
+                const std::string id = sliceName(globalZ);
+
+                const cv::Mat gradientPreview =
+                    gradientSlicePreview(gradient, broadROI3D, z);
+
+                cv::imwrite(
+                    (fs::path(OUTPUT_FOLDER) /
+                     "02_gradient" /
+                     ("gradient_" + id + ".png")).string(),
+                    gradientPreview
+                    );
+            }
+        }
+
+        // The phase-congruency stage does not need the large 3D gradient.
+        gradient.data.clear();
+        gradient.data.shrink_to_fit();
+        nms.clear();
+        nms.shrink_to_fit();
+        globalNmsSamples.clear();
+        globalNmsSamples.shrink_to_fit();
+
         // ----------------------------------------------------
-        // OUR ADDITIONS: 3D COHERENCE + NORMAL CONTRAST + Z SUPPORT
+        // DETECTOR 3: KOVESI-STYLE NOISE-COMPENSATED PHASE CONGRUENCY
         // ----------------------------------------------------
 
-        std::vector<float> scoreSamples;
+        PhaseFilterBank phaseBank =
+            buildPhaseFilterBank(height, width);
 
-        SurfaceMetricsVolume metrics =
-            computeSurfaceMetrics(
-                volume,
+        std::vector<float> phaseNmsScore(total, 0.0f);
+        std::vector<float> phaseScoreSamples;
+        phaseScoreSamples.reserve(total / 80 + 1024);
+
+        std::vector<float> phaseNoiseThresholds(
+            static_cast<size_t>(depth),
+            0.0f
+            );
+
+        for (int z = 0; z < depth; ++z)
+        {
+            const int globalZ = FIRST_SLICE + z;
+
+            std::cout << "\rPhase congruency: slice "
+                      << globalZ << " / " << LAST_SLICE
+                      << std::flush;
+
+            cv::Mat slice(
+                height,
+                width,
+                CV_32F,
+                volume.data() +
+                    static_cast<size_t>(z) * sliceSize
+                );
+
+            const cv::Mat broadMask =
+                maskSliceFromVolume(
+                    broadROI3D,
+                    width,
+                    height,
+                    z
+                    );
+
+            const cv::Mat seedMask =
+                maskSliceFromVolume(
+                    seedROI3D,
+                    width,
+                    height,
+                    z
+                    );
+
+            PhaseCongruencyResult pc =
+                computePhaseCongruency2D(
+                    slice,
+                    broadMask,
+                    phaseBank
+                    );
+
+            phaseNoiseThresholds[static_cast<size_t>(z)] =
+                pc.meanNoiseThreshold;
+
+            float* dst =
+                phaseNmsScore.data() +
+                static_cast<size_t>(z) * sliceSize;
+
+            for (int y = 0; y < height; ++y)
+            {
+                const float* src = pc.nmsScore.ptr<float>(y);
+                const uchar* seedRow = seedMask.ptr<uchar>(y);
+
+                for (int x = 0; x < width; ++x)
+                {
+                    const float v = src[x];
+                    dst[static_cast<size_t>(y) * width + x] = v;
+
+                    // Use only the tight object-neighbourhood distribution to
+                    // select the final PC hysteresis threshold.
+                    if (seedRow[x] != 0 && v > 0.0f)
+                        phaseScoreSamples.push_back(v);
+                }
+            }
+
+            if (SAVE_ALL_SLICE_DIAGNOSTICS)
+            {
+                const std::string id = sliceName(globalZ);
+
+                const cv::Mat pcPreview =
+                    floatMapTo8U(pc.pc, 99.5f);
+
+                const cv::Mat stepnessPreview =
+                    floatMapTo8U(pc.stepness, 99.5f);
+
+                const cv::Mat edgeScorePreview =
+                    floatMapTo8U(pc.edgeScore, 99.5f);
+
+                const cv::Mat pcNmsPreview =
+                    floatMapTo8U(pc.nmsScore, 99.5f);
+
+                cv::imwrite(
+                    (fs::path(OUTPUT_FOLDER) /
+                     "05_phase_congruency_map" /
+                     ("pc_" + id + ".png")).string(),
+                    pcPreview
+                    );
+
+                cv::imwrite(
+                    (fs::path(OUTPUT_FOLDER) /
+                     "05_phase_congruency_map" /
+                     ("stepness_" + id + ".png")).string(),
+                    stepnessPreview
+                    );
+
+                cv::imwrite(
+                    (fs::path(OUTPUT_FOLDER) /
+                     "05_phase_congruency_map" /
+                     ("pc_edge_score_" + id + ".png")).string(),
+                    edgeScorePreview
+                    );
+
+                if (SAVE_PHASE_CONGRUENCY_16BIT)
+                {
+                    cv::imwrite(
+                        (fs::path(OUTPUT_FOLDER) /
+                         "05_phase_congruency_map" /
+                         ("pc16_" + id + ".png")).string(),
+                        floatMapTo16U01(pc.pc)
+                        );
+
+                    cv::imwrite(
+                        (fs::path(OUTPUT_FOLDER) /
+                         "05_phase_congruency_map" /
+                         ("pc_edge_score16_" + id + ".png")).string(),
+                        floatMapTo16U01(pc.edgeScore)
+                        );
+                }
+
+                cv::imwrite(
+                    (fs::path(OUTPUT_FOLDER) /
+                     "06_phase_congruency_nms" /
+                     ("pc_nms_" + id + ".png")).string(),
+                    pcNmsPreview
+                    );
+            }
+        }
+
+        std::cout << std::endl;
+
+        if (phaseScoreSamples.empty())
+        {
+            std::cerr << "Phase congruency produced no NMS candidates."
+                      << std::endl;
+            return 1;
+        }
+
+        const float pcHigh = std::max(
+            PC_HIGH_FLOOR,
+            percentile(phaseScoreSamples, PC_HIGH_PERCENTILE)
+            );
+
+        const float pcLow = std::max(
+            PC_LOW_FLOOR,
+            pcHigh * PC_LOW_HIGH_RATIO
+            );
+
+        std::cout
+            << "\nPhase-congruency hysteresis thresholds:\n"
+            << "  high = " << pcHigh << '\n'
+            << "  low  = " << pcLow << std::endl;
+
+        std::vector<uint8_t> phaseEdges =
+            hysteresisFloatScore3D(
+                phaseNmsScore,
+                seedROI3D,
+                broadROI3D,
                 width,
                 height,
                 depth,
-                gradient,
-                nms,
-                broadROI3D,
-                gradientSamples,
-                scoreSamples
-                );
-
-        if (scoreSamples.empty())
-        {
-            std::cerr << "No surface-score candidates." << std::endl;
-            return 1;
-        }
-
-        const float strongThreshold =
-            percentile(scoreSamples, STRONG_SCORE_PERCENTILE);
-
-        const float weakPercentileThreshold =
-            percentile(scoreSamples, WEAK_SCORE_PERCENTILE);
-
-        const float weakThreshold =
-            std::max(
-                weakPercentileThreshold,
-                strongThreshold * WEAK_TO_STRONG_RATIO
-                );
-
-        std::cout
-            << "\nSurface-score thresholds:\n"
-            << "  weak percentile threshold = "
-            << weakPercentileThreshold << '\n'
-            << "  weak final threshold      = "
-            << weakThreshold << '\n'
-            << "  strong threshold          = "
-            << strongThreshold << '\n'
-            << "  rescue threshold          = "
-            << weakThreshold * RESCUE_TO_WEAK_RATIO
-            << std::endl;
-
-        // ----------------------------------------------------
-        // ARTICLE CORE: 3D HYSTERESIS, enriched by local 3D quality
-        // ----------------------------------------------------
-
-        std::vector<uint8_t> edgeType;
-        std::vector<uint8_t> accepted3D;
-
-        hysteresis3D(
-            gradient,
-            nms,
-            metrics,
-            coreROI3D,
-            weakThreshold,
-            strongThreshold,
-            edgeType,
-            accepted3D
-            );
-
-        const cv::Mat hysteresisBeforeBridge =
-            centerMaskFromVolume(
-                accepted3D,
-                width,
-                height,
-                centerZ
-                );
-
-        const long long bridgeAdded3D =
-            bridgeShortContourGaps3D(
-                gradient,
-                nms,
-                metrics,
-                coreROI3D,
-                weakThreshold,
-                edgeType,
-                accepted3D
+                pcLow,
+                pcHigh
                 );
 
         // ----------------------------------------------------
-        // CENTER-SLICE DIAGNOSTICS BEFORE ROI
+        // SAVE ALL DETECTOR MASKS + OVERLAYS + REPORT
         // ----------------------------------------------------
-
-        const cv::Mat gradientCenter =
-            makeGradientCenterImage(gradient, centerZ);
-
-        const cv::Mat nmsCenter =
-            makeNmsCenterImage(gradient, nms, centerZ);
-
-        const cv::Mat coherenceCenter =
-            scalarCenterImage(
-                metrics.coherence,
-                width,
-                height,
-                centerZ,
-                99.8f
-                );
-
-        const cv::Mat contrastCenter =
-            scalarCenterImage(
-                metrics.contrastNorm,
-                width,
-                height,
-                centerZ,
-                99.8f
-                );
-
-        const cv::Mat zSupportCenter =
-            zSupportCenterImage(metrics, centerZ);
-
-        const cv::Mat scoreCenter =
-            scalarCenterImage(
-                metrics.score,
-                width,
-                height,
-                centerZ,
-                99.5f
-                );
-
-        const cv::Mat hysteresisCenterUnfiltered =
-            centerMaskFromVolume(
-                accepted3D,
-                width,
-                height,
-                centerZ
-                );
-
-        // ----------------------------------------------------
-        // GENEROUS POST-DETECTION ROI
-        // ----------------------------------------------------
-
-        const cv::Mat broadROI =
-            centerMaskFromVolume(
-                broadROI3D,
-                width,
-                height,
-                centerZ
-                );
-
-        const cv::Mat coreROI =
-            centerMaskFromVolume(
-                coreROI3D,
-                width,
-                height,
-                centerZ
-                );
-
-        cv::Mat finalCenter;
-        cv::bitwise_and(
-            hysteresisCenterUnfiltered,
-            broadROI,
-            finalCenter
-            );
-
-        // ----------------------------------------------------
-        // CLASSIFICATION IMAGE
-        // ----------------------------------------------------
-
-        cv::Mat classification(
-            height,
-            width,
-            CV_8UC3,
-            cv::Scalar(0, 0, 0)
-            );
-
-        const size_t sliceSize =
-            static_cast<size_t>(width) *
-            static_cast<size_t>(height);
-
-        const size_t centerOffset =
-            static_cast<size_t>(centerZ) * sliceSize;
-
-        long long centerAccepted = 0;
-        long long centerStrong = 0;
-        long long centerPersistentSeed = 0;
-        long long centerWeak = 0;
-        long long centerRescue = 0;
-        long long centerBridge = 0;
-
-        for (int y = 0; y < height; ++y)
-        {
-            const uchar* finalRow = finalCenter.ptr<uchar>(y);
-            cv::Vec3b* dst = classification.ptr<cv::Vec3b>(y);
-
-            for (int x = 0; x < width; ++x)
-            {
-                if (finalRow[x] == 0)
-                    continue;
-
-                const size_t idx =
-                    centerOffset +
-                    static_cast<size_t>(y) * width +
-                    static_cast<size_t>(x);
-
-                ++centerAccepted;
-
-                if (edgeType[idx] == 2)
-                {
-                    // global strong = red
-                    dst[x] = cv::Vec3b(0, 0, 255);
-                    ++centerStrong;
-                }
-                else if (edgeType[idx] == 4)
-                {
-                    // persistent internal 3D seed = green
-                    dst[x] = cv::Vec3b(0, 255, 0);
-                    ++centerPersistentSeed;
-                }
-                else if (edgeType[idx] == 5)
-                {
-                    // evidence-guided short-gap bridge = blue
-                    dst[x] = cv::Vec3b(255, 0, 0);
-                    ++centerBridge;
-                }
-                else if (edgeType[idx] == 3)
-                {
-                    // 3D rescue connected to a seed = magenta
-                    dst[x] = cv::Vec3b(255, 0, 255);
-                    ++centerRescue;
-                }
-                else
-                {
-                    // ordinary weak connected = yellow
-                    dst[x] = cv::Vec3b(0, 255, 255);
-                    ++centerWeak;
-                }
-            }
-        }
-
-        // ----------------------------------------------------
-        // ARTICLE CORE: THIRD-ORDER TAYLOR SUBVOXEL REFINEMENT
-        // ----------------------------------------------------
-
-        std::vector<SubvoxelPoint> refinedPoints;
-        refinedPoints.reserve(
-            static_cast<size_t>(std::max<long long>(centerAccepted, 0))
-            );
-
-        cv::Mat subvoxelMask(
-            height,
-            width,
-            CV_8U,
-            cv::Scalar(0)
-            );
-
-        long long taylorPrimary = 0;
-        long long taylorPrimaryFailed = 0;
-        long long parabolicFallback = 0;
-        long long voxelCenterFallback = 0;
-
-        for (int y = 2; y < height - 2; ++y)
-        {
-            const uchar* finalRow = finalCenter.ptr<uchar>(y);
-
-            for (int x = 2; x < width - 2; ++x)
-            {
-                if (finalRow[x] == 0)
-                    continue;
-
-                SubvoxelPoint point;
-
-                bool refined =
-                    refineTaylorPoint(
-                        volume,
-                        width,
-                        height,
-                        depth,
-                        gradient,
-                        metrics,
-                        x,
-                        y,
-                        centerZ,
-                        point
-                        );
-
-                if (refined)
-                {
-                    ++taylorPrimary;
-                }
-                else
-                {
-                    ++taylorPrimaryFailed;
-
-                    if (!ENABLE_SUBVOXEL_FALLBACK)
-                        continue;
-
-                    refined =
-                        refineParabolicGradientPoint(
-                            gradient,
-                            metrics,
-                            x,
-                            y,
-                            centerZ,
-                            point
-                            );
-
-                    if (refined)
-                    {
-                        ++parabolicFallback;
-                    }
-                    else
-                    {
-                        keepVoxelCenterPoint(
-                            gradient,
-                            metrics,
-                            x,
-                            y,
-                            centerZ,
-                            point
-                            );
-
-                        refined = true;
-                        ++voxelCenterFallback;
-                    }
-                }
-
-                refinedPoints.push_back(point);
-
-                const int xx = cvRound(point.x);
-                const int yy = cvRound(point.y);
-
-                if (xx >= 0 && xx < width &&
-                    yy >= 0 && yy < height)
-                {
-                    subvoxelMask.at<uchar>(yy, xx) = 255;
-                }
-            }
-        }
-
-        // ----------------------------------------------------
-        // OVERLAYS
-        // ----------------------------------------------------
-
-        const cv::Mat display = makeDisplayImage(centerOriginal);
-
-        cv::Mat overlay;
-        cv::cvtColor(display, overlay, cv::COLOR_GRAY2BGR);
-
-        for (int y = 0; y < height; ++y)
-        {
-            const cv::Vec3b* cls = classification.ptr<cv::Vec3b>(y);
-            cv::Vec3b* dst = overlay.ptr<cv::Vec3b>(y);
-
-            for (int x = 0; x < width; ++x)
-            {
-                if (cls[x][0] != 0 || cls[x][1] != 0 || cls[x][2] != 0)
-                    dst[x] = cls[x];
-            }
-        }
-
-        cv::Mat subvoxelOverlay = overlay.clone();
-
-        for (const SubvoxelPoint& p : refinedPoints)
-        {
-            const int xx = cvRound(p.x);
-            const int yy = cvRound(p.y);
-
-            if (xx >= 0 && xx < width &&
-                yy >= 0 && yy < height)
-            {
-                // final refined/fallback surface point = cyan
-                subvoxelOverlay.at<cv::Vec3b>(yy, xx) =
-                    cv::Vec3b(255, 255, 0);
-            }
-        }
-
-        // ----------------------------------------------------
-        // SAVE DIAGNOSTICS
-        // ----------------------------------------------------
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/00_gradient_3D_center.png",
-            gradientCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/01_NMS_3D_center.png",
-            nmsCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/02_gradient_coherence_center.png",
-            coherenceCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/03_normal_contrast_center.png",
-            contrastCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/04_Z_support_center.png",
-            zSupportCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/05_surface_score_center.png",
-            scoreCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/06_hysteresis_before_bridge.png",
-            hysteresisBeforeBridge
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/07_hysteresis_after_bridge.png",
-            hysteresisCenterUnfiltered
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/08_object_core_ROI.png",
-            coreROI
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/09_broad_object_ROI.png",
-            broadROI
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/10_final_center_mask.png",
-            finalCenter
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/11_final_center_classification.png",
-            classification
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/12_overlay.png",
-            overlay
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/13_subvoxel_surface_mask.png",
-            subvoxelMask
-            );
-
-        cv::imwrite(
-            OUTPUT_FOLDER + "/14_subvoxel_surface_overlay.png",
-            subvoxelOverlay
-            );
-
-        saveAcceptedSlices(accepted3D, width, height, depth);
-
-        // ----------------------------------------------------
-        // SAVE SUBVOXEL POINT CLOUD FOR CENTER-SLICE SEEDS
-        // ----------------------------------------------------
-
-        std::ofstream csv(
-            OUTPUT_FOLDER + "/surface_points_center_refined.csv"
-            );
-
-        csv << std::fixed << std::setprecision(9);
-        csv
-            << "source_x,source_y,source_local_z,source_global_z,"
-               "t_um,x_voxel,y_voxel,z_local_voxel,"
-               "x_um,y_um,z_um,gradient_magnitude,"
-               "coherence,normal_contrast,z_support,surface_score,"
-               "refinement_type\n";
-
-        for (const SubvoxelPoint& p : refinedPoints)
-        {
-            csv
-                << p.sourceX << ','
-                << p.sourceY << ','
-                << p.sourceZ << ','
-                << (FIRST_SLICE + p.sourceZ) << ','
-                << p.tPhysicalUm << ','
-                << p.x << ','
-                << p.y << ','
-                << p.z << ','
-                << p.physicalX << ','
-                << p.physicalY << ','
-                << p.physicalZ << ','
-                << p.gradientMagnitude << ','
-                << p.coherence << ','
-                << p.contrast << ','
-                << p.zSupport << ','
-                << p.surfaceScore << ','
-                << p.refinementType
-                << '\n';
-        }
-
-        csv.close();
-
-        // ----------------------------------------------------
-        // REPORT
-        // ----------------------------------------------------
-
-        const long long totalNms =
-            static_cast<long long>(
-                std::count(
-                    nms.begin(),
-                    nms.end(),
-                    static_cast<uint8_t>(1)
-                    )
-                );
-
-        const long long totalAccepted3D =
-            static_cast<long long>(
-                std::count(
-                    accepted3D.begin(),
-                    accepted3D.end(),
-                    static_cast<uint8_t>(1)
-                    )
-                );
 
         std::ofstream report(
-            OUTPUT_FOLDER + "/report_article_surface_v4.txt"
+            fs::path(OUTPUT_FOLDER) / "report_three_detectors.txt"
             );
 
         report << std::fixed << std::setprecision(9);
-
         report
-            << "ARTICLE-BASED 3D CANNY + MOTION-TOLERANT Z TRACKING + BRIDGING + TAYLOR\n"
-            << "=================================================================\n\n"
-            << "Slices\n"
-            << "------\n"
+            << "THREE DETECTOR COMPARISON\n"
+            << "=========================\n\n"
+            << "Slice range\n"
+            << "-----------\n"
             << "first  = " << FIRST_SLICE << '\n'
             << "center = " << CENTER_SLICE << '\n'
             << "last   = " << LAST_SLICE << '\n'
             << "depth  = " << depth << "\n\n"
-            << "Voxel spacing (um)\n"
-            << "------------------\n"
-            << "sx = " << SPACING_X << '\n'
-            << "sy = " << SPACING_Y << '\n'
-            << "sz = " << SPACING_Z << "\n\n"
-            << "Gaussian\n"
-            << "--------\n"
-            << "sigma_xy = " << SIGMA_XY << '\n'
-            << "sigma_z  = " << SIGMA_Z << "\n\n"
-            << "3D NMS\n"
+            << "Volume\n"
             << "------\n"
-            << "step = " << NMS_STEP << '\n'
-            << "plateau factor = " << NMS_PLATEAU_FACTOR << '\n'
-            << "NMS voxels = " << totalNms << "\n\n"
-            << "Quality metric scales\n"
-            << "---------------------\n"
-            << "gradient scale P" << GRADIENT_SCALE_PERCENTILE
-            << " = " << metrics.gradientScale << '\n'
-            << "contrast scale P" << CONTRAST_SCALE_PERCENTILE
-            << " = " << metrics.contrastScale << "\n\n"
-            << "Hysteresis thresholds on composite score\n"
-            << "----------------------------------------\n"
-            << "weak percentile = " << WEAK_SCORE_PERCENTILE << '\n'
-            << "strong percentile = " << STRONG_SCORE_PERCENTILE << '\n'
-            << "weak/strong ratio floor = " << WEAK_TO_STRONG_RATIO << '\n'
-            << "weak percentile threshold = "
-            << weakPercentileThreshold << '\n'
-            << "weak final threshold = " << weakThreshold << '\n'
-            << "strong threshold = " << strongThreshold << '\n'
-            << "rescue threshold = "
-            << weakThreshold * RESCUE_TO_WEAK_RATIO << '\n'
-            << "persistent seed threshold = "
-            << weakThreshold * PERSISTENT_SEED_TO_WEAK_RATIO << "\n\n"
-            << "3D persistence / bridge parameters\n"
-            << "----------------------------------\n"
-            << "Z support radius = " << Z_SUPPORT_RADIUS << '\n'
-            << "Z support search radius = " << Z_SUPPORT_SEARCH_RADIUS << '\n'
-            << "Z support recovery radius = " << Z_SUPPORT_RECOVERY_SEARCH_RADIUS << '\n'
-            << "Z support max consecutive misses = "
-            << Z_SUPPORT_MAX_CONSECUTIVE_MISSES << '\n'
-            << "Z support local normal cosine = "
-            << Z_SUPPORT_MIN_NORMAL_COSINE << '\n'
-            << "Z support seed normal cosine = "
-            << Z_SUPPORT_MIN_SEED_NORMAL_COSINE << '\n'
-            << "hysteresis track search radius = "
-            << HYSTERESIS_TRACK_SEARCH_RADIUS << '\n'
-            << "hysteresis track min normal cosine = "
-            << HYSTERESIS_TRACK_MIN_NORMAL_COSINE << '\n'
-            << "persistent seed min Z support = "
-            << PERSISTENT_SEED_MIN_Z_SUPPORT << '\n'
-            << "bridge min Z support = " << BRIDGE_MIN_Z_SUPPORT << '\n'
-            << "bridge tangent radius = " << BRIDGE_TANGENT_RADIUS << "\n\n"
-            << "Center results\n"
-            << "--------------\n"
-            << "accepted after broad ROI = " << centerAccepted << '\n'
-            << "global strong = " << centerStrong << '\n'
-            << "persistent 3D seeds = " << centerPersistentSeed << '\n'
-            << "weak connected = " << centerWeak << '\n'
-            << "3D rescue connected = " << centerRescue << '\n'
-            << "short-gap bridge = " << centerBridge << "\n\n"
-            << "Subvoxel results\n"
-            << "----------------\n"
-            << "Taylor primary success = " << taylorPrimary << '\n'
-            << "Taylor primary failed = " << taylorPrimaryFailed << '\n'
-            << "parabolic fallback = " << parabolicFallback << '\n'
-            << "voxel-centre fallback = " << voxelCenterFallback << '\n'
-            << "final refined/fallback points = " << refinedPoints.size()
+            << "width  = " << width << '\n'
+            << "height = " << height << '\n'
+            << "spacing um = "
+            << SPACING_X << ", "
+            << SPACING_Y << ", "
+            << SPACING_Z << "\n\n"
+            << "Common Gaussian smoothing\n"
+            << "-------------------------\n"
+            << "sigma XY = " << SIGMA_XY << '\n'
+            << "sigma Z  = " << SIGMA_Z << "\n\n"
+            << "Detector 1: ordinary/global 3D Canny\n"
+            << "------------------------------------\n"
+            << "high percentile = "
+            << STANDARD_HIGH_PERCENTILE << '\n'
+            << "high threshold  = " << standardHigh << '\n'
+            << "low/high ratio  = "
+            << STANDARD_LOW_HIGH_RATIO << '\n'
+            << "low threshold   = " << standardLow << "\n\n"
+            << "Detector 2: adaptive Otsu 3D Canny\n"
+            << "------------------------------------\n"
+            << "tile size = " << ADAPT_TILE_SIZE << '\n'
+            << "tile margin = " << ADAPT_TILE_MARGIN << '\n'
+            << "Z radius = " << ADAPT_Z_RADIUS << '\n'
+            << "global Otsu high = " << adaptiveGlobalHigh << '\n'
+            << "low/high ratio = " << ADAPT_LOW_HIGH_RATIO << '\n'
+            << "global floor ratio = " << ADAPT_GLOBAL_FLOOR_RATIO << '\n'
+            << "global ceiling ratio = " << ADAPT_GLOBAL_CEIL_RATIO
             << "\n\n"
-            << "Volume results\n"
-            << "--------------\n"
-            << "evidence-guided bridge points added = " << bridgeAdded3D << '\n'
-            << "3D accepted voxels = " << totalAccepted3D << '\n';
+            << "Detector 3: Kovesi-style phase congruency\n"
+            << "-----------------------------------------\n"
+            << "scales = " << PC_NSCALE << '\n'
+            << "orientations = " << PC_NORIENT << '\n'
+            << "minimum wavelength = "
+            << PC_MIN_WAVELENGTH << '\n'
+            << "scale multiplier = " << PC_MULT << '\n'
+            << "sigmaOnf = " << PC_SIGMA_ON_F << '\n'
+            << "noise K = " << PC_NOISE_K << '\n'
+            << "step weight floor = " << PC_STEP_WEIGHT_FLOOR << '\n'
+            << "anisotropy weight floor = "
+            << PC_ANISOTROPY_WEIGHT_FLOOR << '\n'
+            << "PC high percentile = "
+            << PC_HIGH_PERCENTILE << '\n'
+            << "PC high floor = " << PC_HIGH_FLOOR << '\n'
+            << "PC high threshold = " << pcHigh << '\n'
+            << "PC low threshold  = " << pcLow << "\n\n"
+            << "Per-slice comparison\n"
+            << "--------------------\n"
+            << "slice,standard_count,adaptive_count,pc_count,"
+               "J_standard_adaptive,J_standard_pc,J_adaptive_pc,"
+               "pc_mean_noise_threshold\n";
+
+        for (int z = 0; z < depth; ++z)
+        {
+            const int globalZ = FIRST_SLICE + z;
+            const std::string id = sliceName(globalZ);
+
+            cv::Mat original;
+            if (!loadFloatSlice(files[globalZ], original))
+                return 1;
+
+            const cv::Mat display = makeDisplayImage(original);
+
+            const cv::Mat seedRoiMask =
+                maskSliceFromVolume(
+                    seedROI3D,
+                    width,
+                    height,
+                    z
+                    );
+
+            const cv::Mat broadRoiMask =
+                maskSliceFromVolume(
+                    broadROI3D,
+                    width,
+                    height,
+                    z
+                    );
+
+            const cv::Mat standardMask =
+                maskSliceFromVolume(
+                    cannyStandard,
+                    width,
+                    height,
+                    z
+                    );
+
+            const cv::Mat adaptiveMask =
+                maskSliceFromVolume(
+                    cannyAdaptive,
+                    width,
+                    height,
+                    z
+                    );
+
+            const cv::Mat phaseMask =
+                maskSliceFromVolume(
+                    phaseEdges,
+                    width,
+                    height,
+                    z
+                    );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "00_original" /
+                 ("original_" + id + ".png")).string(),
+                display
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "01_roi" /
+                 ("seed_roi_" + id + ".png")).string(),
+                seedRoiMask
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "01_roi" /
+                 ("broad_roi_" + id + ".png")).string(),
+                broadRoiMask
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "03_canny_standard" /
+                 ("standard_" + id + ".png")).string(),
+                standardMask
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "04_canny_adaptive" /
+                 ("adaptive_" + id + ".png")).string(),
+                adaptiveMask
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "07_phase_congruency_edges" /
+                 ("pc_edges_" + id + ".png")).string(),
+                phaseMask
+                );
+
+            const cv::Mat overlayStandard =
+                makeOverlay(
+                    display,
+                    standardMask,
+                    cv::Vec3b(0, 0, 255)
+                    );
+
+            const cv::Mat overlayAdaptive =
+                makeOverlay(
+                    display,
+                    adaptiveMask,
+                    cv::Vec3b(0, 255, 0)
+                    );
+
+            const cv::Mat overlayPC =
+                makeOverlay(
+                    display,
+                    phaseMask,
+                    cv::Vec3b(255, 0, 0)
+                    );
+
+            const cv::Mat overlayCombined =
+                makeCombinedOverlay(
+                    display,
+                    standardMask,
+                    adaptiveMask,
+                    phaseMask
+                    );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "08_overlays" /
+                 ("standard_red_" + id + ".png")).string(),
+                overlayStandard
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "08_overlays" /
+                 ("adaptive_green_" + id + ".png")).string(),
+                overlayAdaptive
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "08_overlays" /
+                 ("pc_blue_" + id + ".png")).string(),
+                overlayPC
+                );
+
+            cv::imwrite(
+                (fs::path(OUTPUT_FOLDER) /
+                 "08_overlays" /
+                 ("combined_" + id + ".png")).string(),
+                overlayCombined
+                );
+
+            report
+                << globalZ << ','
+                << countMask(standardMask) << ','
+                << countMask(adaptiveMask) << ','
+                << countMask(phaseMask) << ','
+                << jaccard(standardMask, adaptiveMask) << ','
+                << jaccard(standardMask, phaseMask) << ','
+                << jaccard(adaptiveMask, phaseMask) << ','
+                << phaseNoiseThresholds[static_cast<size_t>(z)]
+                << '\n';
+        }
 
         report.close();
 
-        // ----------------------------------------------------
-        // DONE
-        // ----------------------------------------------------
+        const long long totalStandard =
+            static_cast<long long>(
+                std::count(
+                    cannyStandard.begin(),
+                    cannyStandard.end(),
+                    static_cast<uint8_t>(1)
+                    )
+                );
+
+        const long long totalAdaptive =
+            static_cast<long long>(
+                std::count(
+                    cannyAdaptive.begin(),
+                    cannyAdaptive.end(),
+                    static_cast<uint8_t>(1)
+                    )
+                );
+
+        const long long totalPC =
+            static_cast<long long>(
+                std::count(
+                    phaseEdges.begin(),
+                    phaseEdges.end(),
+                    static_cast<uint8_t>(1)
+                    )
+                );
 
         std::cout
-            << "\n==============================================\n"
-            << "DONE - ARTICLE SURFACE V4\n"
-            << "==============================================\n"
-            << "3D NMS voxels: " << totalNms << '\n'
-            << "3D bridge points added: " << bridgeAdded3D << '\n'
-            << "3D accepted: " << totalAccepted3D << '\n'
-            << "Center after broad ROI: " << centerAccepted << '\n'
-            << "  global strong: " << centerStrong << '\n'
-            << "  persistent 3D seeds: " << centerPersistentSeed << '\n'
-            << "  weak connected: " << centerWeak << '\n'
-            << "  rescue connected: " << centerRescue << '\n'
-            << "  short-gap bridge: " << centerBridge << '\n'
-            << "Taylor primary success: " << taylorPrimary << '\n'
-            << "Taylor primary failed: " << taylorPrimaryFailed << '\n'
-            << "Parabolic fallback: " << parabolicFallback << '\n'
-            << "Voxel-centre fallback: " << voxelCenterFallback << '\n'
-            << "Final surface points: " << refinedPoints.size() << '\n'
-            << "Results folder:\n"
-            << OUTPUT_FOLDER << std::endl;
+            << "\nFinished.\n"
+            << "Output folder:\n"
+            << OUTPUT_FOLDER << "\n\n"
+            << "Accepted 3D edge voxels:\n"
+            << "  ordinary 3D Canny = " << totalStandard << '\n'
+            << "  adaptive 3D Canny = " << totalAdaptive << '\n'
+            << "  phase congruency   = " << totalPC << "\n\n"
+            << "Combined overlay colours:\n"
+            << "  red     = ordinary Canny only\n"
+            << "  green   = adaptive Canny only\n"
+            << "  blue    = phase congruency only\n"
+            << "  yellow  = ordinary + adaptive\n"
+            << "  magenta = ordinary + phase congruency\n"
+            << "  cyan    = adaptive + phase congruency\n"
+            << "  white   = all three detectors\n"
+            << std::endl;
 
         return 0;
     }
+    catch (const cv::Exception& e)
+    {
+        std::cerr << "OpenCV exception:\n"
+                  << e.what() << std::endl;
+        return 2;
+    }
     catch (const std::exception& e)
     {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return 1;
+        std::cerr << "Exception:\n"
+                  << e.what() << std::endl;
+        return 3;
     }
 }
