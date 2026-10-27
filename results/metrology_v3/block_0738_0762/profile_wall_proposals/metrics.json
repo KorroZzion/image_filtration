@@ -1,0 +1,30 @@
+{
+  "accepted_vertex_fraction": 0.54826314997528,
+  "paired_profiles": 510,
+  "geometry_backtracked_vertices": 3706,
+  "abs_shift_p95_vox": 1.1097830533981323,
+  "residual_rmse_median": 0.002925497479736805,
+  "quality_warning": "Fit stderr excludes CT systematic errors and is not metrological uncertainty.",
+  "geometry": {
+    "finite": true,
+    "non_manifold_edges": 33,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 2.3994290828704834,
+    "global_triangle_self_intersections_checked": false,
+    "passed": false
+  },
+  "first": 738,
+  "last": 762,
+  "method": "profile_wall_proposals",
+  "crop_box_y0_y1_x0_x1": [
+    459,
+    1370,
+    286,
+    697
+  ],
+  "context_first": 730,
+  "context_last": 770,
+  "warning": "No real CT accuracy score: reference STL absent. Profile proposals are experimental."
+}

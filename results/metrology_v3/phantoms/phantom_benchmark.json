@@ -1,0 +1,164 @@
+{
+  "real_CT_accuracy_measured": false,
+  "volume_cases": [
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 100,
+      "method": "gradient",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.42732182145118713
+        },
+        "refined": {
+          "median_vox": 0.1406087875366211,
+          "p95_vox": 0.3554716110229492
+        }
+      },
+      "accepted_fraction": 1.0
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 100,
+      "method": "farid",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.42732182145118713
+        },
+        "refined": {
+          "median_vox": 0.14932632446289062,
+          "p95_vox": 0.360004723072052
+        }
+      },
+      "accepted_fraction": 1.0
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 100,
+      "method": "psf",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.42732182145118713
+        },
+        "refined": {
+          "median_vox": 0.09730911254882812,
+          "p95_vox": 0.26703041791915894
+        }
+      },
+      "accepted_fraction": 0.9863822607857315
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 101,
+      "method": "gradient",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.4254913330078125
+        },
+        "refined": {
+          "median_vox": 0.14107060432434082,
+          "p95_vox": 0.3557871878147125
+        }
+      },
+      "accepted_fraction": 1.0
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 101,
+      "method": "farid",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.4254913330078125
+        },
+        "refined": {
+          "median_vox": 0.14884281158447266,
+          "p95_vox": 0.36015602946281433
+        }
+      },
+      "accepted_fraction": 1.0
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 101,
+      "method": "psf",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.4254913330078125
+        },
+        "refined": {
+          "median_vox": 0.09692096710205078,
+          "p95_vox": 0.26583921909332275
+        }
+      },
+      "accepted_fraction": 0.9863822607857315
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 102,
+      "method": "gradient",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.4254913330078125
+        },
+        "refined": {
+          "median_vox": 0.14017581939697266,
+          "p95_vox": 0.3559606373310089
+        }
+      },
+      "accepted_fraction": 1.0
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 102,
+      "method": "farid",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.4254913330078125
+        },
+        "refined": {
+          "median_vox": 0.14876413345336914,
+          "p95_vox": 0.35987502336502075
+        }
+      },
+      "accepted_fraction": 1.0
+    },
+    {
+      "phantom": "voxelized sphere and inclined bore, Gaussian blur, intensity drift and noise",
+      "noise_seed": 102,
+      "method": "psf",
+      "errors_against_analytic_surfaces": {
+        "initial": {
+          "median_vox": 0.15879249572753906,
+          "p95_vox": 0.4254913330078125
+        },
+        "refined": {
+          "median_vox": 0.09710025787353516,
+          "p95_vox": 0.26359453797340393
+        }
+      },
+      "accepted_fraction": 0.9874668594842131
+    }
+  ],
+  "thin_wall_profiles": {
+    "single_interface": {
+      "median_vox": 1.015636528123704,
+      "p95_vox": 1.4813316883531265,
+      "resolved_cases": 48,
+      "resolved_p95_vox": 1.0725179240709262
+    },
+    "paired_interfaces": {
+      "median_vox": 0.022240595085086523,
+      "p95_vox": 0.17739231676971082,
+      "resolved_cases": 48,
+      "resolved_p95_vox": 0.03970222578571342
+    }
+  },
+  "limitations": "Synthetic data; Gaussian PSF assumed, CT systematic errors absent."
+}

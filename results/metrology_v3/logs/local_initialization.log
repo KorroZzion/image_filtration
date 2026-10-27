@@ -1,0 +1,8 @@
+  local fit {'round': 1, 'mean_change': 0.05286918580532074, 'material_voxels': 504873}
+  local fit {'round': 2, 'mean_change': 0.01563703641295433, 'material_voxels': 502340}
+  local fit {'round': 3, 'mean_change': 0.007466729264706373, 'material_voxels': 504826}
+  local fit {'round': 4, 'mean_change': 0.004295620135962963, 'material_voxels': 505097}
+  local fit {'round': 1, 'mean_change': 0.06757295876741409, 'material_voxels': 520823}
+  local fit {'round': 2, 'mean_change': 0.010017236694693565, 'material_voxels': 521002}
+  local fit {'round': 3, 'mean_change': 0.003868857165798545, 'material_voxels': 520794}
+  local fit {'round': 4, 'mean_change': 0.0023254575207829475, 'material_voxels': 520175}

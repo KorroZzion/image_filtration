@@ -1,0 +1,4 @@
+block_0738_0762 local_rsf_6 start (41, 911, 411)
+{'method': 'local_rsf_6', 'history': [{'round': 1, 'mean_change': 0.02163833938539028, 'material_voxels': 2570868}, {'round': 2, 'mean_change': 0.007723106071352959, 'material_voxels': 2480475}, {'round': 3, 'mean_change': 0.003683880902826786, 'material_voxels': 2441471}, {'round': 4, 'mean_change': 0.002166843507438898, 'material_voxels': 2416303}], 'seconds': 272.3898389060014}
+block_0738_0762 local_rsf_12 start (41, 911, 411)
+{'method': 'local_rsf_12', 'history': [{'round': 1, 'mean_change': 0.02527065947651863, 'material_voxels': 2570133}, {'round': 2, 'mean_change': 0.007158053107559681, 'material_voxels': 2496342}, {'round': 3, 'mean_change': 0.002957651624456048, 'material_voxels': 2465844}, {'round': 4, 'mean_change': 0.0015559087041765451, 'material_voxels': 2449792}], 'seconds': 160.13743421099934}

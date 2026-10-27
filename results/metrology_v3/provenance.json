@@ -1,0 +1,30 @@
+{
+  "base_git_commit": "eb888994a994b2ba628b0df4ab431d9a6fc838ef",
+  "voxel_size_um": [
+    75.4,
+    75.4,
+    75.4
+  ],
+  "voxel_size_source": "confirmed by user in this conversation",
+  "reference_stl_found": false,
+  "real_CT_accuracy_measured": false,
+  "sources": {
+    "experiments/benchmark_canny3d.py": "822cb866293c558986a66d53e1a239520afa8501fcb2b0190e9a8426427cac85",
+    "experiments/benchmark_metrology.py": "1e7480b0258287351db75c569651bebc52b605eaea0d54abd8340d3ceee16491",
+    "experiments/boundary_study.py": "9cf6d1c78e19096f38e5aaef334cb95c0167570a273a45cbc328b797afed0afd",
+    "experiments/canny3d_study.py": "9a53821b4004ae6d0c0f86ae694a3238dbadf89efde473097fafefaacb5c5793",
+    "experiments/compare_farid3d.py": "1431f61ad112fcf72735537ce071dbbc4a320073c24e904fff312916cbc6e21a",
+    "experiments/compare_metrology.py": "d5dc9579c64db86338d7f945d2227297ccc4745f2e077750bf86dfc4dc4e2508",
+    "experiments/metrology_study.py": "4012e09e86bbeb41274bee6edd53d9e9eef57aa9d7ec6f15381a30d83246ed30",
+    "experiments/phantom_check.py": "96ec5642a1f43b47d70575201a1ae837c18c4719c6306e558ef708fd00fcfc00",
+    "experiments/refine_canny3d.py": "76fabd6ec87ab8c2ae597b463e60646c8def9a664b72333347aefb7bfc58fc75",
+    "experiments/review_canny3d.py": "13e38beb91af6e312d31acd814bfdc5c978380b8eb1c718edc6e3d37daecfb27",
+    "experiments/review_hybrid.py": "ca7c65878f001cce3c186b414b3675346ac5f1ce80331eedb0c2ca65d45a6f8c",
+    "experiments/review_metrology.py": "b4f6fd019aedba45dcb9abd7012aaa89b436d7fd1a31898c8e37d8527d312e10",
+    "experiments/review_results.py": "387013bd65a691ece5dc60248d8f7f7394933da438b35dc7f271d9e5342d0081",
+    "experiments/test_canny3d.py": "f5f44a6a32b0eacbfbae2fda5bf3a535fc405106b5b205c8c271b38e03cdab79",
+    "experiments/test_metrology.py": "2fc4dc4b01d222b38c8f5e067e92c2ce04fd9878f679b2851834630d8bd948e1",
+    "experiments/track_boundaries.py": "d3988cc7f0611ec43aba696a20fb84b637e3694270855620edc5a3093fb92516",
+    "experiments/track_channels.py": "c7f5cfaea3c8dc4faa99c941638952e686dbab0ab536687b5e5cd74481a643f6"
+  }
+}

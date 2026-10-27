@@ -1,0 +1,68 @@
+[
+  {
+    "file": "results/metrology_v3/block_0500_0524/preserved_topology/surface_coordinates.npz",
+    "finite": true,
+    "non_manifold_edges": 0,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 2.39888334274292,
+    "global_triangle_self_intersections_checked": false,
+    "passed": true
+  },
+  {
+    "file": "results/metrology_v3/block_0738_0762/local_rsf_6/surface_coordinates.npz",
+    "finite": true,
+    "non_manifold_edges": 0,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 2.3994200229644775,
+    "global_triangle_self_intersections_checked": false,
+    "passed": true
+  },
+  {
+    "file": "results/metrology_v3/block_0738_0762/preserved_topology/surface_coordinates.npz",
+    "finite": true,
+    "non_manifold_edges": 0,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 2.3983817100524902,
+    "global_triangle_self_intersections_checked": false,
+    "passed": true
+  },
+  {
+    "file": "results/metrology_v3/block_0738_0762/profile_wall_proposals/surface_coordinates.npz",
+    "finite": true,
+    "non_manifold_edges": 33,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 2.3994290828704834,
+    "global_triangle_self_intersections_checked": false,
+    "passed": false
+  },
+  {
+    "file": "results/metrology_v3/block_0976_1000/preserved_topology/surface_coordinates.npz",
+    "finite": true,
+    "non_manifold_edges": 0,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 2.395510196685791,
+    "global_triangle_self_intersections_checked": false,
+    "passed": true
+  },
+  {
+    "file": "results/metrology_v3/farid3d/surface_coordinates.npz",
+    "finite": true,
+    "non_manifold_edges": 0,
+    "boundary_edges_away_from_cuts": 0,
+    "degenerate_faces": 0,
+    "flipped_faces": 0,
+    "max_displacement_vox": 1.8700422048568726,
+    "global_triangle_self_intersections_checked": false,
+    "passed": true
+  }
+]

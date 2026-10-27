@@ -1,0 +1,93 @@
+{
+  "local_date": "2026-10-28",
+  "timezone": "Asia/Tomsk",
+  "coverage": "Limited search through accessible GitHub; publishers and scholarly search gateways blocked",
+  "github_queries": [
+    "surface determination CT in:readme",
+    "tomography subvoxel in:readme",
+    "CT metrology surface in:readme",
+    "local binary fitting",
+    "Lifton CT in:readme",
+    "computed tomography point spread in:readme",
+    "An Unbiased Detector of Curvilinear Structures in:readme"
+  ],
+  "verified_reads": [
+    {
+      "url": "https://raw.githubusercontent.com/yxxxxxxxx/LocalBinaryFittingModel/master/README.md",
+      "http_status": 200,
+      "sha256_of_read_content": "d2a30218eb903be0f0d000370d846d3876e5ca799b3f88bdecc0701bed0e859e",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/neurogeometry/Normalized_Level_Set/master/README.md",
+      "http_status": 200,
+      "sha256_of_read_content": "e2aa6c27069d4b50fc856d69c60aa27382d2793ca039e4ffff84f8f3241e145a",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/neurogeometry/Normalized_Level_Set/main/Level_Set_LBF_3D.m",
+      "http_status": 200,
+      "sha256_of_read_content": "49968c3952c042dceca63412bc915615070a32549f5e0563e5d7e58f34732a6e",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/neurogeometry/Normalized_Level_Set/main/Level_Set_nLBF_3D.m",
+      "http_status": 200,
+      "sha256_of_read_content": "bec6066bb0f9e6277a1f8107c3ba4254e03fd264c5230de14daf3189fef5ccb2",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/gift-surg/NSoL/master/README.md",
+      "http_status": 200,
+      "sha256_of_read_content": "09e836e6d7b679764646cbaa621ecb3ac1c476e23b5845efa05f0c3edbf27a08",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/raymondngiam/subpixel-edge-contour-in-opencv/main/readme.md",
+      "http_status": 200,
+      "sha256_of_read_content": "12ca51aebcb91d3ea618c5c1d270d75b39e3e43ebf9cf28ae5d9841a165941ac",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SFNCY/Steger/master/README.md",
+      "http_status": 200,
+      "sha256_of_read_content": "8c9e334187e88fd4cd09817db52de80129852869ca3b9b991dfe6e2e4c113fe4",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lxfhfut/ridge-detector/master/README.md",
+      "http_status": 200,
+      "sha256_of_read_content": "1e81e6f2859be5c64acee49bb8de84b5b08ff8c94c11dab07de1c554029223b2",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/segmentation/_chan_vese.py",
+      "http_status": 200,
+      "sha256_of_read_content": "1c7827ee08c4f1d3aa740b7a40cf33cb2619b75484fc4403b69ef773d19dd3d2",
+      "content_type": "README or source code, not publisher full text"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AhmedAlratrout/ContactAngle-Curvature-Roughness/master/README.md",
+      "http_status": 200,
+      "sha256_of_read_content": "6d95c2c59883886335c13aae1ef693524cd36c7fa4a41a14c7f84b69a00fe250",
+      "content_type": "README or source code, not publisher full text"
+    }
+  ],
+  "direct_access_failures": {
+    "hosts": [
+      "api.crossref.org",
+      "api.openalex.org",
+      "api.semanticscholar.org",
+      "export.arxiv.org",
+      "doi.org",
+      "www.nist.gov",
+      "pubmed.ncbi.nlm.nih.gov",
+      "pmc.ncbi.nlm.nih.gov",
+      "ieeexplore.ieee.org",
+      "journals.plos.org",
+      "link.springer.com"
+    ],
+    "error": "Tunnel connection failed: 403 Forbidden",
+    "network_permission_request_succeeded_but_did_not_remove_gateway_error": true
+  }
+}
