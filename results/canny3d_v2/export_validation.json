@@ -1,0 +1,161 @@
+[
+  {
+    "block": "block_0500_0524",
+    "source_first": 500,
+    "source_last": 524,
+    "variant": "rejected_experimental_initialization",
+    "geometry_validation": {
+      "status": "rejected",
+      "non_manifold_edges": 63,
+      "maximum_faces_per_edge": 4,
+      "reason": "Ambiguous voxel contacts in the rejected initialization; not a usable manifold PLY."
+    },
+    "core_edge_voxels": {
+      "gaussian_standard": 1861535,
+      "gaussian_adaptive": 1003830,
+      "gaussian_supported": 962706,
+      "diffusion_standard": 575373,
+      "diffusion_adaptive": 419484,
+      "diffusion_supported": 418286
+    },
+    "refinement": {
+      "components_before_cleanup": 15,
+      "outer_support_seed_voxels": 76912,
+      "removed_material_voxels": 45,
+      "retention_assumption": "one connected scanned part in the selected block",
+      "geometry_backtracked_vertices": 32224,
+      "accepted_vertex_fraction": 0.554950178478449,
+      "abs_shift_p95_vox": 1.096745252609253,
+      "abs_z_displacement_p95_vox": 0.6444470286369324,
+      "mesh_vertices": 505103,
+      "mesh_faces": 992122
+    }
+  },
+  {
+    "block": "block_0738_0762",
+    "source_first": 738,
+    "source_last": 762,
+    "variant": "rejected_experimental_initialization",
+    "geometry_validation": {
+      "status": "rejected",
+      "non_manifold_edges": 21,
+      "maximum_faces_per_edge": 4,
+      "reason": "Ambiguous voxel contacts in the rejected initialization; not a usable manifold PLY."
+    },
+    "core_edge_voxels": {
+      "gaussian_standard": 127598,
+      "gaussian_adaptive": 147321,
+      "gaussian_supported": 147321,
+      "diffusion_standard": 120107,
+      "diffusion_adaptive": 146314,
+      "diffusion_supported": 146314
+    },
+    "refinement": {
+      "components_before_cleanup": 3,
+      "outer_support_seed_voxels": 71861,
+      "removed_material_voxels": 10,
+      "retention_assumption": "one connected scanned part in the selected block",
+      "geometry_backtracked_vertices": 18003,
+      "accepted_vertex_fraction": 0.530685933919728,
+      "abs_shift_p95_vox": 1.368221402168274,
+      "abs_z_displacement_p95_vox": 0.44178175926208496,
+      "mesh_vertices": 270580,
+      "mesh_faces": 530668
+    }
+  },
+  {
+    "block": "block_0976_1000",
+    "source_first": 976,
+    "source_last": 1000,
+    "variant": "rejected_experimental_initialization",
+    "geometry_validation": {
+      "status": "rejected",
+      "non_manifold_edges": 3,
+      "maximum_faces_per_edge": 4,
+      "reason": "Ambiguous voxel contacts in the rejected initialization; not a usable manifold PLY."
+    },
+    "core_edge_voxels": {
+      "gaussian_standard": 117631,
+      "gaussian_adaptive": 140154,
+      "gaussian_supported": 140154,
+      "diffusion_standard": 114679,
+      "diffusion_adaptive": 143994,
+      "diffusion_supported": 143994
+    },
+    "refinement": {
+      "components_before_cleanup": 2,
+      "outer_support_seed_voxels": 57122,
+      "removed_material_voxels": 2,
+      "retention_assumption": "one connected scanned part in the selected block",
+      "geometry_backtracked_vertices": 12659,
+      "accepted_vertex_fraction": 0.6278058561894492,
+      "abs_shift_p95_vox": 0.9149038195610046,
+      "abs_z_displacement_p95_vox": 0.37985992431640625,
+      "mesh_vertices": 230901,
+      "mesh_faces": 452872
+    }
+  },
+  {
+    "block": "block_0500_0524",
+    "source_first": 500,
+    "source_last": 524,
+    "mesh_vertices": 228924,
+    "mesh_faces": 446292,
+    "boundary_edges_at_cut_planes": 12098,
+    "variant": "supported_refinement",
+    "core_edge_voxels": {
+      "standard": 1280245,
+      "adaptive": 646281,
+      "supported": 609650
+    },
+    "refinement": {
+      "geometry_backtracked_vertices": 4983,
+      "vertices_without_nearby_canny": 4748,
+      "accepted_vertex_fraction": 0.9006613548601282,
+      "abs_shift_p95_vox": 0.5589712262153625,
+      "abs_z_displacement_p95_vox": 0.389610230922699
+    }
+  },
+  {
+    "block": "block_0738_0762",
+    "source_first": 738,
+    "source_last": 762,
+    "mesh_vertices": 196164,
+    "mesh_faces": 381582,
+    "boundary_edges_at_cut_planes": 10832,
+    "variant": "supported_refinement",
+    "core_edge_voxels": {
+      "standard": 108944,
+      "adaptive": 137934,
+      "supported": 137934
+    },
+    "refinement": {
+      "geometry_backtracked_vertices": 3271,
+      "vertices_without_nearby_canny": 39650,
+      "accepted_vertex_fraction": 0.7304551293815379,
+      "abs_shift_p95_vox": 1.1073170900344849,
+      "abs_z_displacement_p95_vox": 0.4278460443019867
+    }
+  },
+  {
+    "block": "block_0976_1000",
+    "source_first": 976,
+    "source_last": 1000,
+    "mesh_vertices": 176236,
+    "mesh_faces": 340874,
+    "boundary_edges_at_cut_planes": 11774,
+    "variant": "supported_refinement",
+    "core_edge_voxels": {
+      "standard": 105095,
+      "adaptive": 133326,
+      "supported": 133326
+    },
+    "refinement": {
+      "geometry_backtracked_vertices": 1785,
+      "vertices_without_nearby_canny": 16892,
+      "accepted_vertex_fraction": 0.8333257677205566,
+      "abs_shift_p95_vox": 0.6359370350837708,
+      "abs_z_displacement_p95_vox": 0.39639532566070557
+    }
+  }
+]

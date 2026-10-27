@@ -1,0 +1,65 @@
+[
+  {
+    "filter": "gaussian",
+    "canny": {
+      "standard": {
+        "precision_tolerance_2vox": 1.0,
+        "recall_tolerance_2vox": 0.9986866501854141,
+        "edge_voxels": 10362
+      },
+      "adaptive": {
+        "precision_tolerance_2vox": 0.7349457408326832,
+        "recall_tolerance_2vox": 0.9986866501854141,
+        "edge_voxels": 14099
+      },
+      "supported": {
+        "precision_tolerance_2vox": 1.0,
+        "recall_tolerance_2vox": 0.9986866501854141,
+        "edge_voxels": 10362
+      }
+    },
+    "segmentation_dice": 0.993286044835565,
+    "seed_surface_error_p95_vox": 0.4298381805419922,
+    "refined_surface_error_p95_vox": 0.35121044516563416,
+    "refinement": {
+      "geometry_backtracked_vertices": 0,
+      "vertices_without_nearby_canny": 0,
+      "accepted_vertex_fraction": 1.0,
+      "abs_shift_p95_vox": 0.4689257740974426,
+      "abs_z_displacement_p95_vox": 0.3676549196243286
+    }
+  },
+  {
+    "filter": "diffusion",
+    "diffusion_kappa": 0.015,
+    "noise_mad": 0.002609415351239905,
+    "iterations": 8,
+    "canny": {
+      "standard": {
+        "precision_tolerance_2vox": 1.0,
+        "recall_tolerance_2vox": 0.9993046971569839,
+        "edge_voxels": 10428
+      },
+      "adaptive": {
+        "precision_tolerance_2vox": 1.0,
+        "recall_tolerance_2vox": 0.9993046971569839,
+        "edge_voxels": 10428
+      },
+      "supported": {
+        "precision_tolerance_2vox": 1.0,
+        "recall_tolerance_2vox": 0.9993046971569839,
+        "edge_voxels": 10428
+      }
+    },
+    "segmentation_dice": 0.9968006966530365,
+    "seed_surface_error_p95_vox": 0.4071941375732422,
+    "refined_surface_error_p95_vox": 0.3377477824687958,
+    "refinement": {
+      "geometry_backtracked_vertices": 0,
+      "vertices_without_nearby_canny": 0,
+      "accepted_vertex_fraction": 1.0,
+      "abs_shift_p95_vox": 0.4638938903808594,
+      "abs_z_displacement_p95_vox": 0.37110602855682373
+    }
+  }
+]

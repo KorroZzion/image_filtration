@@ -1,0 +1,6 @@
+{
+  "status": "rejected",
+  "non_manifold_edges": 3,
+  "maximum_faces_per_edge": 4,
+  "reason": "Ambiguous voxel contacts in the rejected initialization; not a usable manifold PLY."
+}

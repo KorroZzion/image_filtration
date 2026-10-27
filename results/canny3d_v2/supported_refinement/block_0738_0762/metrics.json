@@ -1,0 +1,28 @@
+{
+  "first": 738,
+  "last": 762,
+  "center": 750,
+  "initializer": {
+    "kind": "previous slice-wise marker-controlled watershed; no threshold sweep"
+  },
+  "crop_box_y0_y1_x0_x1": [
+    459,
+    1370,
+    286,
+    697
+  ],
+  "canny_core_counts": {
+    "standard": 108944,
+    "adaptive": 137934,
+    "supported": 137934
+  },
+  "refinement": {
+    "geometry_backtracked_vertices": 3271,
+    "vertices_without_nearby_canny": 39650,
+    "accepted_vertex_fraction": 0.7304551293815379,
+    "abs_shift_p95_vox": 1.1073170900344849,
+    "abs_z_displacement_p95_vox": 0.4278460443019867
+  },
+  "mesh_vertices": 196164,
+  "mesh_faces": 381582
+}

@@ -1,0 +1,29 @@
+{
+  "first": 500,
+  "last": 524,
+  "center": 512,
+  "initializer": {
+    "kind": "3D oriented-edge watershed without the rejected outer-support prior",
+    "initializer_sha256": "b73fd0744c15a3451fc62f040d03dd0ee3a0976ee49060431ecfd122d0acddbf"
+  },
+  "crop_box_y0_y1_x0_x1": [
+    415,
+    1578,
+    237,
+    718
+  ],
+  "canny_core_counts": {
+    "standard": 1280245,
+    "adaptive": 646281,
+    "supported": 609650
+  },
+  "refinement": {
+    "geometry_backtracked_vertices": 4983,
+    "vertices_without_nearby_canny": 4748,
+    "accepted_vertex_fraction": 0.9006613548601282,
+    "abs_shift_p95_vox": 0.5589712262153625,
+    "abs_z_displacement_p95_vox": 0.389610230922699
+  },
+  "mesh_vertices": 228924,
+  "mesh_faces": 446292
+}

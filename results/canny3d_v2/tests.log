@@ -1,0 +1,16 @@
+test_adaptive_threshold_responds_to_local_noise (test_canny3d.TestCanny3D.test_adaptive_threshold_responds_to_local_noise) ... ok
+test_detects_a_boundary_visible_only_in_z (test_canny3d.TestCanny3D.test_detects_a_boundary_visible_only_in_z) ... ok
+test_exact_slice_plane_intersections_keep_cut_edges (test_canny3d.TestCanny3D.test_exact_slice_plane_intersections_keep_cut_edges) ... ok
+test_surface_detection_and_material_side_on_3d_bored_sphere (test_canny3d.TestCanny3D.test_surface_detection_and_material_side_on_3d_bored_sphere) ...   oriented seeds: 21413 air, 9335 material
+Analytic 3D phantom: tolerance-2 precision 1.0 recall 0.9986866501854141 mask Dice 0.993286044835565
+ok
+test_xyz_refinement_localizes_analytic_surfaces (test_canny3d.TestCanny3D.test_xyz_refinement_localizes_analytic_surfaces) ...   oriented seeds: 21413 air, 11210 material
+Analytic surface gaussian XYZ refinement P95 error: 0.35121044516563416 {'geometry_backtracked_vertices': 0, 'vertices_without_nearby_canny': 0, 'accepted_vertex_fraction': 1.0, 'abs_shift_p95_vox': 0.4689257740974426, 'abs_z_displacement_p95_vox': 0.3676549196243286}
+  oriented seeds: 21409 air, 11193 material
+Analytic surface diffusion XYZ refinement P95 error: 0.3377477824687958 {'geometry_backtracked_vertices': 0, 'vertices_without_nearby_canny': 0, 'accepted_vertex_fraction': 1.0, 'abs_shift_p95_vox': 0.4638938903808594, 'abs_z_displacement_p95_vox': 0.37110602855682373}
+ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.853s
+
+OK

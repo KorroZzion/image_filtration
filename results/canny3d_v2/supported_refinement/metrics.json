@@ -1,0 +1,114 @@
+[
+  {
+    "first": 500,
+    "last": 524,
+    "center": 512,
+    "initializer": {
+      "kind": "3D oriented-edge watershed without the rejected outer-support prior",
+      "initializer_sha256": "b73fd0744c15a3451fc62f040d03dd0ee3a0976ee49060431ecfd122d0acddbf"
+    },
+    "crop_box_y0_y1_x0_x1": [
+      415,
+      1578,
+      237,
+      718
+    ],
+    "canny_core_counts": {
+      "standard": 1280245,
+      "adaptive": 646281,
+      "supported": 609650
+    },
+    "refinement": {
+      "geometry_backtracked_vertices": 4983,
+      "vertices_without_nearby_canny": 4748,
+      "accepted_vertex_fraction": 0.9006613548601282,
+      "abs_shift_p95_vox": 0.5589712262153625,
+      "abs_z_displacement_p95_vox": 0.389610230922699
+    },
+    "mesh_vertices": 228924,
+    "mesh_faces": 446292
+  },
+  {
+    "first": 738,
+    "last": 762,
+    "center": 750,
+    "initializer": {
+      "kind": "previous slice-wise marker-controlled watershed; no threshold sweep"
+    },
+    "crop_box_y0_y1_x0_x1": [
+      459,
+      1370,
+      286,
+      697
+    ],
+    "canny_core_counts": {
+      "standard": 108944,
+      "adaptive": 137934,
+      "supported": 137934
+    },
+    "refinement": {
+      "geometry_backtracked_vertices": 3271,
+      "vertices_without_nearby_canny": 39650,
+      "accepted_vertex_fraction": 0.7304551293815379,
+      "abs_shift_p95_vox": 1.1073170900344849,
+      "abs_z_displacement_p95_vox": 0.4278460443019867
+    },
+    "mesh_vertices": 196164,
+    "mesh_faces": 381582
+  },
+  {
+    "first": 976,
+    "last": 1000,
+    "center": 988,
+    "initializer": {
+      "kind": "preserved previous successful joint 3D watershed masks",
+      "source_image_sha256": {
+        "material_0976.png": "454e26bd1ae90ba7f7f3745587187de03d8d7fa9f79f030ee5067bb910f60702",
+        "material_0977.png": "887d239db9083e849b7b78bd165a083594978f9ce0643ed72920426bb4d41818",
+        "material_0978.png": "49a2a783cefe34869e6c0e4f07ec3ff8d0f1072eecd54b95168c6c79e3c1341a",
+        "material_0979.png": "88d498f6a89c2fe07d934379c15302ba82f3b83e8918be5aa8a97dd36a587b98",
+        "material_0980.png": "edb1909bc74b799651254a385dd78e306a6b17aca73ab0505335cebd487217eb",
+        "material_0981.png": "16336bfbbe7d1bfc7875e51d76356b5930ccf0363ae57560dfca7d44dee74829",
+        "material_0982.png": "9a7022d152747ab94fd3c2e7c1d019d76dd01900e0f25ee8ac5bd0be34e26297",
+        "material_0983.png": "403667f038fc5f58732b346cd6b654430a48093a9edbdda196d7e72f516683b9",
+        "material_0984.png": "c265108821450c5dc28aa20812ba542d6e7c89e75ead0a22167513d5650145d9",
+        "material_0985.png": "e2fb1acb340cee3e9b5af8448b9a2f928c891ccb3e1f6fcb6b2f2e074df35b28",
+        "material_0986.png": "e9da154b2996c376e3c43b633fc1d3deb22358704f950fd4fab7ff3782d1f890",
+        "material_0987.png": "ad9d781749b57cbfd6514cad1f8868e955469307b5404e0b1f50d2c7c08f1c46",
+        "material_0988.png": "6020d95b250c09f818ed2195a2f8bf7d9b72c61c63b530925779e778a7a1b50e",
+        "material_0989.png": "55039b2d2850801c2c18469994fc1e00ee28e9cd5f67afcf3a6a656baf2ebf29",
+        "material_0990.png": "ec8d84a9e5c1aed6de0b075de2e41a6e115a5100230a9f3c0e1709214e79afd7",
+        "material_0991.png": "4097928d542d941c03a3be02485014ce364444e5f00fcfc3159d2939de8ffee9",
+        "material_0992.png": "dc81b4ccb99de81fc4ddf2fae7a78a22727c61faaac62f36315479ce8c381993",
+        "material_0993.png": "a0c677df4b275fb60d15e7030ca8d3756cf7b1dbe8a98594383cfc07a4fdf022",
+        "material_0994.png": "a5f7b79e6b91222ef0262d71a169f5ff286660a6df1cd2882805e6bd15b239f8",
+        "material_0995.png": "6114563d53124e018cbadcea0b84cfb40a9e659bce4916dbd732c2e39c40539c",
+        "material_0996.png": "d3d353ad6be9291617c1c114b89a47b493eedfb36af39b637df3047576c97eee",
+        "material_0997.png": "ddda163dd310a5dcd377b70493ba17ed9052dd382714963d6a2936b686234b27",
+        "material_0998.png": "95af9cd2b71b9c007b0b0ba9fed6a0bfaf404550142bc4d310dc81fcc9a6e958",
+        "material_0999.png": "a2e9473af88dbf0ba9cdf0033861efc5c6c67b2b007fef93d48c7584e01c69a9",
+        "material_1000.png": "171aa9e8e8ab24be0351cbf43153debf7a961a6af50f611630d218a59e597484"
+      }
+    },
+    "crop_box_y0_y1_x0_x1": [
+      480,
+      1370,
+      291,
+      700
+    ],
+    "canny_core_counts": {
+      "standard": 105095,
+      "adaptive": 133326,
+      "supported": 133326
+    },
+    "refinement": {
+      "geometry_backtracked_vertices": 1785,
+      "vertices_without_nearby_canny": 16892,
+      "accepted_vertex_fraction": 0.8333257677205566,
+      "abs_shift_p95_vox": 0.6359370350837708,
+      "abs_z_displacement_p95_vox": 0.39639532566070557
+    },
+    "mesh_vertices": 176236,
+    "mesh_faces": 340874
+  }
+]

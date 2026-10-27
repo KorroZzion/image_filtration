@@ -1,0 +1,37 @@
+{
+  "input_repository_commit": "0e4fa06d700e20d31da30532f57e08e3af80ccf0",
+  "source_data_unchanged": true,
+  "source_code_sha256": {
+    "README.md": "40a0204bf5f146ee5dda9fee680f8d05185e8f7bf05508d805a8d9fcc46911f6",
+    "boundary_study.py": "9cf6d1c78e19096f38e5aaef334cb95c0167570a273a45cbc328b797afed0afd",
+    "phantom_check.py": "96ec5642a1f43b47d70575201a1ae837c18c4719c6306e558ef708fd00fcfc00",
+    "requirements.txt": "874fb6920aff7229e31c84373d39267efb973ef8d562fd51c17c3265276717a7",
+    "review_hybrid.py": "ca7c65878f001cce3c186b414b3675346ac5f1ce80331eedb0c2ca65d45a6f8c",
+    "review_results.py": "387013bd65a691ece5dc60248d8f7f7394933da438b35dc7f271d9e5342d0081",
+    "track_boundaries.py": "d3988cc7f0611ec43aba696a20fb84b637e3694270855620edc5a3093fb92516",
+    "track_channels.py": "c7f5cfaea3c8dc4faa99c941638952e686dbab0ab536687b5e5cd74481a643f6",
+    "benchmark_canny3d.py": "822cb866293c558986a66d53e1a239520afa8501fcb2b0190e9a8426427cac85",
+    "canny3d_study.py": "9a53821b4004ae6d0c0f86ae694a3238dbadf89efde473097fafefaacb5c5793",
+    "test_canny3d.py": "f5f44a6a32b0eacbfbae2fda5bf3a535fc405106b5b205c8c271b38e03cdab79",
+    "review_canny3d.py": "13e38beb91af6e312d31acd814bfdc5c978380b8eb1c718edc6e3d37daecfb27",
+    "refine_canny3d.py": "76fabd6ec87ab8c2ae597b463e60646c8def9a664b72333347aefb7bfc58fc75"
+  },
+  "real_source_blocks": [
+    [
+      500,
+      524
+    ],
+    [
+      738,
+      762
+    ],
+    [
+      976,
+      1000
+    ]
+  ],
+  "preferred_variant": "supported_refinement",
+  "test_runner": "python -m unittest discover -s experiments -p test_canny3d.py -v",
+  "isovalue": 0.5,
+  "rejected_outer_prior_applied_in_diagnostic_blocks": true
+}

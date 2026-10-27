@@ -1,0 +1,60 @@
+{
+  "source_first": 738,
+  "source_last": 762,
+  "context_first": 734,
+  "context_last": 766,
+  "crop_box_y0_y1_x0_x1": [
+    459,
+    1370,
+    286,
+    697
+  ],
+  "assumed_isotropic_spacing_um": 75.4,
+  "original_uint16_scaling": 65535,
+  "methods": {
+    "gaussian": {
+      "global_otsu_high": 0.033227451145648956,
+      "standard_high_p90": 0.04151436313986778,
+      "adaptive_high_min": 0.014290189370512962,
+      "adaptive_high_max": 0.043617572635412216,
+      "tile_xy": 64,
+      "tile_z": 5,
+      "nms_candidates": 1081450,
+      "standard_edges": 158382,
+      "adaptive_edges": 183042,
+      "supported_edges": 183042,
+      "seconds": 15.535351130998606
+    },
+    "diffusion": {
+      "diffusion_kappa": 0.015,
+      "noise_mad": 0.0007139743920871291,
+      "iterations": 8,
+      "global_otsu_high": 0.035529233515262604,
+      "standard_high_p90": 0.05465707182884216,
+      "adaptive_high_min": 0.014417790807783604,
+      "adaptive_high_max": 0.04784227907657623,
+      "tile_xy": 64,
+      "tile_z": 5,
+      "nms_candidates": 829636,
+      "standard_edges": 149283,
+      "adaptive_edges": 181713,
+      "supported_edges": 181713,
+      "seconds": 46.67894373699892
+    }
+  },
+  "notes": [
+    "Mesh coordinates in voxels; accuracy on real CT requires reference contours."
+  ],
+  "segmentation": {
+    "components_before_cleanup": 3,
+    "outer_support_seed_voxels": 71861,
+    "removed_material_voxels": 10,
+    "retention_assumption": "one connected scanned part in the selected block",
+    "geometry_backtracked_vertices": 18003,
+    "accepted_vertex_fraction": 0.530685933919728,
+    "abs_shift_p95_vox": 1.368221402168274,
+    "abs_z_displacement_p95_vox": 0.44178175926208496,
+    "mesh_vertices": 270580,
+    "mesh_faces": 530668
+  }
+}
