@@ -1,0 +1,17 @@
+{
+  "image_count": 2914,
+  "total_bytes": 222887213,
+  "formats": {
+    "PNG": 1895,
+    "TIFF": 1019
+  },
+  "inventory_pages": 30,
+  "originals_preserved": true,
+  "all_copies_sha256_verified": true,
+  "source_groups": {
+    "/workspace/ct-boundary-results": "experiments",
+    "/workspace/.onboarding/ct-sample/D:/Studies/Real_work/BladeCT/Results/three_detectors_comparison_v2": "onboarding/three_detectors",
+    "/workspace/.onboarding/smoke/D:/Studies/Real_work/BladeCT/Results/article_surface_v4_final": "onboarding/legacy_v4",
+    "/workspace/.onboarding/smoke/D:/Studies/Real_work/BladeCT/20251010_Blade_16bit_75.40um_1804x910x1903": "fixtures/synthetic_smoke"
+  }
+}
