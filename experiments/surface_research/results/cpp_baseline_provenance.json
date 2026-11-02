@@ -1,0 +1,23 @@
+{
+  "original_path": "/workspace/image_filtration/main.cpp",
+  "original_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+  "adapted_sha256": "43e82864997233fb3e4c94c7af231bc729f11d42f536f1e093d7553be0d83cbc",
+  "changes": [
+    "INPUT_FOLDER and OUTPUT_FOLDER assigned runtime args",
+    "FIRST_SLICE CENTER_SLICE LAST_SLICE runtime args, still zero-based positions in sorted TIFF list",
+    "SAVE_ALL_SLICE_DIAGNOSTICS=false",
+    "main(argc,argv) and argument parsing; detector functions and parameters unchanged"
+  ],
+  "binary_sha256": "b379bd77a5ed77a5ac0cda02a8ea39ec969692ffb59a398d895692234ee1ba8e",
+  "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+  "compiler_flags": [
+    "-O3",
+    "-std=c++17",
+    "-I/workspace/.onboarding/sysroot/usr/include/opencv4",
+    "-L/workspace/.onboarding/sysroot/usr/lib/x86_64-linux-gnu",
+    "-Wl,-rpath,/workspace/.onboarding/sysroot/usr/lib/x86_64-linux-gnu",
+    "-lopencv_imgcodecs",
+    "-lopencv_imgproc",
+    "-lopencv_core"
+  ]
+}

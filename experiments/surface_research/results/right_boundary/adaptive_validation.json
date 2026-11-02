@@ -1,0 +1,419 @@
+{
+  "description": "Known analytic 3D normal-blur fields; no real CT accuracy claim",
+  "random_seed": 20261102,
+  "records": [
+    {
+      "case": "broad_psf_sigma_1.0",
+      "n": 240,
+      "accepted_count": 240,
+      "accepted_fraction": 1.0,
+      "chosen_radius_counts": {
+        "6": 240,
+        "12": 0,
+        "24": 0
+      },
+      "estimated_original_voxel_noise": 0.008503199456241003,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.39618116300061956,
+      "accepted_error_signed_mean_vox": -0.0003279334085249793,
+      "accepted_error_abs_p95_vox": 0.0396847048683703,
+      "accepted_fitted_sigma_median_vox": 1.0795592793411652,
+      "accepted_model_se_median_vox": 0.03120268230643347,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        }
+      }
+    },
+    {
+      "case": "broad_psf_sigma_3.0",
+      "n": 240,
+      "accepted_count": 240,
+      "accepted_fraction": 1.0,
+      "chosen_radius_counts": {
+        "6": 0,
+        "12": 240,
+        "24": 0
+      },
+      "estimated_original_voxel_noise": 0.008455083424318537,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.40789904499979457,
+      "accepted_error_signed_mean_vox": 0.0011671438907999046,
+      "accepted_error_abs_p95_vox": 0.05839186774311379,
+      "accepted_fitted_sigma_median_vox": 3.0361282659683853,
+      "accepted_model_se_median_vox": 0.05736037844802709,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 240,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 13,
+          "ill_conditioned_or_uncertain_location": 68,
+          "optimizer_nonfinite_or_failed": 240,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        }
+      }
+    },
+    {
+      "case": "broad_psf_sigma_6.0",
+      "n": 240,
+      "accepted_count": 240,
+      "accepted_fraction": 1.0,
+      "chosen_radius_counts": {
+        "6": 0,
+        "12": 0,
+        "24": 240
+      },
+      "estimated_original_voxel_noise": 0.008231514763156672,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.4142491019993031,
+      "accepted_error_signed_mean_vox": 0.005898553977204997,
+      "accepted_error_abs_p95_vox": 0.09899821662270189,
+      "accepted_fitted_sigma_median_vox": 6.028235853537659,
+      "accepted_model_se_median_vox": 0.07832911946498908,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 111,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 198,
+          "large_model_residual": 24,
+          "unobserved_background_or_material_plateau": 215,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 197,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 240,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 9,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 240,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        }
+      }
+    },
+    {
+      "case": "broad_psf_6_with_quadratic_cupping_model_mismatch",
+      "n": 240,
+      "accepted_count": 240,
+      "accepted_fraction": 1.0,
+      "chosen_radius_counts": {
+        "6": 0,
+        "12": 0,
+        "24": 240
+      },
+      "estimated_original_voxel_noise": 0.008276832120459817,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.392795696999201,
+      "accepted_error_signed_mean_vox": 0.4553913073907703,
+      "accepted_error_abs_p95_vox": 0.538186685700702,
+      "accepted_fitted_sigma_median_vox": 6.095890955358261,
+      "accepted_model_se_median_vox": 0.0786804361491392,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 94,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 208,
+          "large_model_residual": 25,
+          "unobserved_background_or_material_plateau": 220,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 239,
+          "optimizer_nonfinite_or_failed": 205,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 240,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 3,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 240,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        }
+      }
+    },
+    {
+      "case": "negative_linear_ramp",
+      "n": 240,
+      "accepted_count": 0,
+      "accepted_fraction": 0.0,
+      "chosen_radius_counts": {
+        "6": 0,
+        "12": 0,
+        "24": 0
+      },
+      "estimated_original_voxel_noise": 0.00796188176205788,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.4165611270000227,
+      "accepted_error_signed_mean_vox": null,
+      "accepted_error_abs_p95_vox": null,
+      "accepted_fitted_sigma_median_vox": null,
+      "accepted_model_se_median_vox": null,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 240,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 190,
+          "large_model_residual": 2,
+          "unobserved_background_or_material_plateau": 47,
+          "large_background_slope": 226,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 228,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 239,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 205,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 36,
+          "large_background_slope": 234,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 235,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 240,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 214,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 25,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 237,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        }
+      }
+    },
+    {
+      "case": "negative_wall_two_opposing_edges_width4",
+      "n": 240,
+      "accepted_count": 0,
+      "accepted_fraction": 0.0,
+      "chosen_radius_counts": {
+        "6": 0,
+        "12": 0,
+        "24": 0
+      },
+      "estimated_original_voxel_noise": 0.00896216645345124,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.3981637730003058,
+      "accepted_error_signed_mean_vox": null,
+      "accepted_error_abs_p95_vox": null,
+      "accepted_fitted_sigma_median_vox": null,
+      "accepted_model_se_median_vox": null,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 240,
+          "shift_or_sigma_at_bound": 226,
+          "large_model_residual": 37,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 139,
+          "optimizer_nonfinite_or_failed": 215,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 210,
+          "opposing_edge_or_nonmonotone_transition": 240,
+          "shift_or_sigma_at_bound": 1,
+          "large_model_residual": 240,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 240,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 237,
+          "opposing_edge_or_nonmonotone_transition": 240,
+          "shift_or_sigma_at_bound": 108,
+          "large_model_residual": 240,
+          "unobserved_background_or_material_plateau": 139,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 238,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 0
+        }
+      }
+    },
+    {
+      "case": "negative_false_bridge_two_rising_edges_separation6",
+      "n": 240,
+      "accepted_count": 0,
+      "accepted_fraction": 0.0,
+      "chosen_radius_counts": {
+        "6": 0,
+        "12": 0,
+        "24": 0
+      },
+      "estimated_original_voxel_noise": 0.008785475228484881,
+      "true_noise_sigma": 0.008,
+      "elapsed_seconds": 0.3870917600006578,
+      "accepted_error_signed_mean_vox": null,
+      "accepted_error_abs_p95_vox": null,
+      "accepted_fitted_sigma_median_vox": null,
+      "accepted_model_se_median_vox": null,
+      "rejection_counts_by_radius": {
+        "6": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 240,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 240,
+          "large_model_residual": 240,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 240,
+          "ill_conditioned_or_uncertain_location": 240,
+          "optimizer_nonfinite_or_failed": 240,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 236
+        },
+        "12": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 240,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 240,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 199,
+          "optimizer_nonfinite_or_failed": 240,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 240
+        },
+        "24": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 0,
+          "opposing_edge_or_nonmonotone_transition": 0,
+          "shift_or_sigma_at_bound": 0,
+          "large_model_residual": 0,
+          "unobserved_background_or_material_plateau": 0,
+          "large_background_slope": 0,
+          "ill_conditioned_or_uncertain_location": 0,
+          "optimizer_nonfinite_or_failed": 0,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 240
+        }
+      }
+    }
+  ]
+}

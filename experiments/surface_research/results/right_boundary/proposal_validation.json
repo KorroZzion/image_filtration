@@ -1,0 +1,12 @@
+{
+  "known_sigma6_plane": {
+    "candidates": 49,
+    "accepted": 49,
+    "p95_error_vox": 0.14056057545491588
+  },
+  "no_boundary_linear_ramp": {
+    "candidates": 49,
+    "accepted": 0
+  },
+  "note": "Analytical fields; not physical CT metrology validation"
+}

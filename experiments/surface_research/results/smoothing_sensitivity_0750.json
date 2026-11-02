@@ -1,0 +1,34 @@
+{
+  "gradient": {
+    "sigma085_count": 8119,
+    "sigma11_count": 7606,
+    "symmetric_nearest_p50": 0.009600573777698433,
+    "symmetric_nearest_p95": 0.7793105542789054,
+    "symmetric_nearest_max": 13.633500254588391,
+    "fraction_within1vox": 0.9628616852146263
+  },
+  "local50": {
+    "sigma085_count": 8022,
+    "sigma11_count": 7592,
+    "symmetric_nearest_p50": 0.010075177797115758,
+    "symmetric_nearest_p95": 0.8757901427610946,
+    "symmetric_nearest_max": 18.6833827048275,
+    "fraction_within1vox": 0.9609965415652619
+  },
+  "taylor": {
+    "sigma085_count": 8082,
+    "sigma11_count": 7559,
+    "symmetric_nearest_p50": 0.010097769206160732,
+    "symmetric_nearest_p95": 0.800494854825294,
+    "symmetric_nearest_max": 13.634978781602864,
+    "fraction_within1vox": 0.9623425612173134
+  },
+  "erf": {
+    "sigma085_count": 3775,
+    "sigma11_count": 3798,
+    "symmetric_nearest_p50": 0.0035410347567624775,
+    "symmetric_nearest_p95": 0.09244551810273605,
+    "symmetric_nearest_max": 12.67409533247756,
+    "fraction_within1vox": 0.9858708569919451
+  }
+}
