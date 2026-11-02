@@ -1,0 +1,798 @@
+[
+  {
+    "slice": 625,
+    "source_slices": [
+      617,
+      618,
+      619,
+      620,
+      621,
+      622,
+      623,
+      624,
+      625,
+      626,
+      627,
+      628,
+      629,
+      630,
+      631,
+      632,
+      633
+    ],
+    "fit_source_slices": [
+      597,
+      598,
+      599,
+      600,
+      601,
+      602,
+      603,
+      604,
+      605,
+      606,
+      607,
+      608,
+      609,
+      610,
+      611,
+      612,
+      613,
+      614,
+      615,
+      616,
+      617,
+      618,
+      619,
+      620,
+      621,
+      622,
+      623,
+      624,
+      625,
+      626,
+      627,
+      628,
+      629,
+      630,
+      631,
+      632,
+      633,
+      634,
+      635,
+      636,
+      637,
+      638,
+      639,
+      640,
+      641,
+      642,
+      643,
+      644,
+      645,
+      646,
+      647,
+      648,
+      649,
+      650,
+      651,
+      652,
+      653
+    ],
+    "box": [
+      427,
+      1470,
+      248,
+      724
+    ],
+    "noise_sigma_raw_for_nlm": 0.0027034849023122483,
+    "variants": {
+      "multiscale": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 0,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.0017554852854261872,
+        "window_counts": {
+          "6": 0,
+          "12": 0,
+          "24": 1
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 280,
+          "opposing_edge_or_nonmonotone_transition": 78,
+          "shift_or_sigma_at_bound": 322,
+          "large_model_residual": 296,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 314,
+          "ill_conditioned_or_uncertain_location": 304,
+          "optimizer_nonfinite_or_failed": 319,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 250,
+          "proposal_on_search_limit": 92
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 92,
+        "proposal_change_from_raw_p95_vox": 0.0
+      },
+      "nlm": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 0,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.0017554852854261872,
+        "window_counts": {
+          "6": 0,
+          "12": 0,
+          "24": 1
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 281,
+          "opposing_edge_or_nonmonotone_transition": 74,
+          "shift_or_sigma_at_bound": 322,
+          "large_model_residual": 296,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 314,
+          "ill_conditioned_or_uncertain_location": 305,
+          "optimizer_nonfinite_or_failed": 319,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 251,
+          "proposal_on_search_limit": 91
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 91,
+        "proposal_change_from_raw_p95_vox": 1.0
+      },
+      "nlm_clahe": {
+        "candidates": 325,
+        "raw_fit_accepted": 0,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 0,
+        "accepted_fraction": 0.0,
+        "raw_fit_noise_sigma": 0.0017554852854261872,
+        "window_counts": {
+          "6": 0,
+          "12": 0,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 281,
+          "opposing_edge_or_nonmonotone_transition": 53,
+          "shift_or_sigma_at_bound": 323,
+          "large_model_residual": 300,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 304,
+          "ill_conditioned_or_uncertain_location": 311,
+          "optimizer_nonfinite_or_failed": 321,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 170,
+          "proposal_on_search_limit": 114
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 114,
+        "proposal_change_from_raw_p95_vox": 71.0
+      }
+    },
+    "previous_erf_supported_rows_750_949": 18,
+    "seconds": 52.967030086000705
+  },
+  {
+    "slice": 750,
+    "source_slices": [
+      742,
+      743,
+      744,
+      745,
+      746,
+      747,
+      748,
+      749,
+      750,
+      751,
+      752,
+      753,
+      754,
+      755,
+      756,
+      757,
+      758
+    ],
+    "fit_source_slices": [
+      722,
+      723,
+      724,
+      725,
+      726,
+      727,
+      728,
+      729,
+      730,
+      731,
+      732,
+      733,
+      734,
+      735,
+      736,
+      737,
+      738,
+      739,
+      740,
+      741,
+      742,
+      743,
+      744,
+      745,
+      746,
+      747,
+      748,
+      749,
+      750,
+      751,
+      752,
+      753,
+      754,
+      755,
+      756,
+      757,
+      758,
+      759,
+      760,
+      761,
+      762,
+      763,
+      764,
+      765,
+      766,
+      767,
+      768,
+      769,
+      770,
+      771,
+      772,
+      773,
+      774,
+      775,
+      776,
+      777,
+      778
+    ],
+    "box": [
+      444,
+      1385,
+      271,
+      713
+    ],
+    "noise_sigma_raw_for_nlm": 0.001903635511434915,
+    "variants": {
+      "multiscale": {
+        "candidates": 325,
+        "raw_fit_accepted": 2,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 1,
+        "accepted_fraction": 0.006153846153846154,
+        "raw_fit_noise_sigma": 0.0010465933187591846,
+        "window_counts": {
+          "6": 0,
+          "12": 2,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 238,
+          "opposing_edge_or_nonmonotone_transition": 221,
+          "shift_or_sigma_at_bound": 319,
+          "large_model_residual": 310,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 315,
+          "ill_conditioned_or_uncertain_location": 317,
+          "optimizer_nonfinite_or_failed": 321,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 309,
+          "proposal_on_search_limit": 61
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 61,
+        "proposal_change_from_raw_p95_vox": 0.0
+      },
+      "nlm": {
+        "candidates": 325,
+        "raw_fit_accepted": 2,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 1,
+        "accepted_fraction": 0.006153846153846154,
+        "raw_fit_noise_sigma": 0.0010465933187591846,
+        "window_counts": {
+          "6": 0,
+          "12": 2,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 235,
+          "opposing_edge_or_nonmonotone_transition": 223,
+          "shift_or_sigma_at_bound": 319,
+          "large_model_residual": 310,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 315,
+          "ill_conditioned_or_uncertain_location": 317,
+          "optimizer_nonfinite_or_failed": 321,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 309,
+          "proposal_on_search_limit": 61
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 61,
+        "proposal_change_from_raw_p95_vox": 1.0
+      },
+      "nlm_clahe": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 0,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.0010465933187591846,
+        "window_counts": {
+          "6": 1,
+          "12": 0,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 236,
+          "opposing_edge_or_nonmonotone_transition": 222,
+          "shift_or_sigma_at_bound": 320,
+          "large_model_residual": 314,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 311,
+          "ill_conditioned_or_uncertain_location": 318,
+          "optimizer_nonfinite_or_failed": 321,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 308,
+          "proposal_on_search_limit": 50
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 50,
+        "proposal_change_from_raw_p95_vox": 5.0
+      }
+    },
+    "previous_erf_supported_rows_750_949": 5,
+    "seconds": 46.527863991999766
+  },
+  {
+    "slice": 875,
+    "source_slices": [
+      867,
+      868,
+      869,
+      870,
+      871,
+      872,
+      873,
+      874,
+      875,
+      876,
+      877,
+      878,
+      879,
+      880,
+      881,
+      882,
+      883
+    ],
+    "fit_source_slices": [
+      847,
+      848,
+      849,
+      850,
+      851,
+      852,
+      853,
+      854,
+      855,
+      856,
+      857,
+      858,
+      859,
+      860,
+      861,
+      862,
+      863,
+      864,
+      865,
+      866,
+      867,
+      868,
+      869,
+      870,
+      871,
+      872,
+      873,
+      874,
+      875,
+      876,
+      877,
+      878,
+      879,
+      880,
+      881,
+      882,
+      883,
+      884,
+      885,
+      886,
+      887,
+      888,
+      889,
+      890,
+      891,
+      892,
+      893,
+      894,
+      895,
+      896,
+      897,
+      898,
+      899,
+      900,
+      901,
+      902,
+      903
+    ],
+    "box": [
+      454,
+      1384,
+      273,
+      714
+    ],
+    "noise_sigma_raw_for_nlm": 0.0018236521528540008,
+    "variants": {
+      "multiscale": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 1,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.0009792228106274268,
+        "window_counts": {
+          "6": 0,
+          "12": 1,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 231,
+          "opposing_edge_or_nonmonotone_transition": 216,
+          "shift_or_sigma_at_bound": 308,
+          "large_model_residual": 305,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 319,
+          "ill_conditioned_or_uncertain_location": 311,
+          "optimizer_nonfinite_or_failed": 317,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 287,
+          "proposal_on_search_limit": 26
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 26,
+        "proposal_change_from_raw_p95_vox": 0.0
+      },
+      "nlm": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 1,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.0009792228106274268,
+        "window_counts": {
+          "6": 0,
+          "12": 1,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 231,
+          "opposing_edge_or_nonmonotone_transition": 216,
+          "shift_or_sigma_at_bound": 308,
+          "large_model_residual": 305,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 319,
+          "ill_conditioned_or_uncertain_location": 311,
+          "optimizer_nonfinite_or_failed": 317,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 287,
+          "proposal_on_search_limit": 26
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 26,
+        "proposal_change_from_raw_p95_vox": 0.0
+      },
+      "nlm_clahe": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 1,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.0009792228106274268,
+        "window_counts": {
+          "6": 0,
+          "12": 1,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 0,
+          "insufficient_step_amplitude_snr": 226,
+          "opposing_edge_or_nonmonotone_transition": 201,
+          "shift_or_sigma_at_bound": 318,
+          "large_model_residual": 309,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 312,
+          "ill_conditioned_or_uncertain_location": 319,
+          "optimizer_nonfinite_or_failed": 321,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 296,
+          "proposal_on_search_limit": 16
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 16,
+        "proposal_change_from_raw_p95_vox": 14.0
+      }
+    },
+    "previous_erf_supported_rows_750_949": 36,
+    "seconds": 40.82440743999996
+  },
+  {
+    "slice": 988,
+    "source_slices": [
+      980,
+      981,
+      982,
+      983,
+      984,
+      985,
+      986,
+      987,
+      988,
+      989,
+      990,
+      991,
+      992,
+      993,
+      994,
+      995,
+      996
+    ],
+    "fit_source_slices": [
+      960,
+      961,
+      962,
+      963,
+      964,
+      965,
+      966,
+      967,
+      968,
+      969,
+      970,
+      971,
+      972,
+      973,
+      974,
+      975,
+      976,
+      977,
+      978,
+      979,
+      980,
+      981,
+      982,
+      983,
+      984,
+      985,
+      986,
+      987,
+      988,
+      989,
+      990,
+      991,
+      992,
+      993,
+      994,
+      995,
+      996,
+      997,
+      998,
+      999,
+      1000
+    ],
+    "box": [
+      465,
+      1386,
+      275,
+      716
+    ],
+    "noise_sigma_raw_for_nlm": 0.0015676976345698813,
+    "variants": {
+      "multiscale": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 0,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.000819498786860432,
+        "window_counts": {
+          "6": 0,
+          "12": 1,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 4,
+          "insufficient_step_amplitude_snr": 181,
+          "opposing_edge_or_nonmonotone_transition": 183,
+          "shift_or_sigma_at_bound": 320,
+          "large_model_residual": 289,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 320,
+          "ill_conditioned_or_uncertain_location": 305,
+          "optimizer_nonfinite_or_failed": 322,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 273,
+          "proposal_on_search_limit": 21
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 21,
+        "proposal_change_from_raw_p95_vox": 0.0
+      },
+      "nlm": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 0,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.000819498786860432,
+        "window_counts": {
+          "6": 0,
+          "12": 1,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 4,
+          "insufficient_step_amplitude_snr": 180,
+          "opposing_edge_or_nonmonotone_transition": 183,
+          "shift_or_sigma_at_bound": 321,
+          "large_model_residual": 290,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 319,
+          "ill_conditioned_or_uncertain_location": 305,
+          "optimizer_nonfinite_or_failed": 323,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 274,
+          "proposal_on_search_limit": 21
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 21,
+        "proposal_change_from_raw_p95_vox": 1.0
+      },
+      "nlm_clahe": {
+        "candidates": 325,
+        "raw_fit_accepted": 1,
+        "diagnostic_rows_750_949": 100,
+        "accepted_rows_750_949": 1,
+        "accepted_fraction": 0.003076923076923077,
+        "raw_fit_noise_sigma": 0.000819498786860432,
+        "window_counts": {
+          "6": 1,
+          "12": 0,
+          "24": 0
+        },
+        "rejection_any_window": {
+          "profile_outside_original_volume": 4,
+          "insufficient_step_amplitude_snr": 188,
+          "opposing_edge_or_nonmonotone_transition": 188,
+          "shift_or_sigma_at_bound": 317,
+          "large_model_residual": 297,
+          "unobserved_background_or_material_plateau": 325,
+          "large_background_slope": 319,
+          "ill_conditioned_or_uncertain_location": 310,
+          "optimizer_nonfinite_or_failed": 319,
+          "inconsistent_supported_windows": 0,
+          "multiple_separated_rising_edges": 273,
+          "proposal_on_search_limit": 10
+        },
+        "search_source_y": [
+          600,
+          1248
+        ],
+        "search_offset_from_coarse_x": [
+          -40,
+          40
+        ],
+        "path_at_band_limit_count": 10,
+        "proposal_change_from_raw_p95_vox": 4.0
+      }
+    },
+    "previous_erf_supported_rows_750_949": 25,
+    "seconds": 39.71759162000035
+  }
+]

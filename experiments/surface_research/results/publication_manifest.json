@@ -1,8 +1,8 @@
 {
   "repository": "KorroZzion/image_filtration",
-  "base_commit": "3ed8fb62a7062dc99c32e65feeeb9feeda82dba1",
+  "base_commit": "5860f195fd6714f18f7596f78bbd4798ac99b7cf",
   "unchanged_main_cpp_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
-  "validation": "PNG readability, CSV counts and PLY vertex count agree with the recorded metrics; synthetic 7+8 case suites passed in the original run",
+  "validation": "Original synthetic suites (7+8 cases), new adaptive-profile suite (7 cases) and proposal integration tests (2 cases) passed. Published PNG/CSV counts verified. Right-boundary reconstruction remains unconfirmed.",
   "files": [
     {
       "path": "experiments/surface_research/.gitignore",
@@ -12,15 +12,27 @@
     },
     {
       "path": "experiments/surface_research/README.md",
-      "bytes": 11358,
-      "sha256": "969adc2686b02d4226bd135ac32a9d686c9e37b6b87876d89eeb100cd43c728a",
-      "git_blob_sha": "da2879d2d0040c048adef3b8ccee8010f45dace1"
+      "bytes": 11528,
+      "sha256": "1d8cdf406a597269d5a0f32d4eaf9a1559748c79535c2f6df3a8657ec85a07b2",
+      "git_blob_sha": "488230830da4a966e81e752a7047411321cd0f1f"
     },
     {
       "path": "experiments/surface_research/RESEARCH.md",
       "bytes": 18588,
       "sha256": "8a6c57a982c2b5cb671ed9d080f154c6042c1f5194f54dcd9024b249306bef8d",
       "git_blob_sha": "ac9e4a2f58e146f88f0f5c91b24218b991933ffc"
+    },
+    {
+      "path": "experiments/surface_research/RIGHT_BOUNDARY.md",
+      "bytes": 12886,
+      "sha256": "6a12224a9e71e8aec1a0738c434ab7988518565290e682183fc45d3f5b825c09",
+      "git_blob_sha": "5be16f275eba84ba73ed134420bcfa26ff3e3655"
+    },
+    {
+      "path": "experiments/surface_research/adaptive_profile.py",
+      "bytes": 12756,
+      "sha256": "bac02484e527c34d237806818dc6146c2457a82b134ba61dc8c373be99461371",
+      "git_blob_sha": "8aa8263e6a55ccc6b255fb482df47189c17e5d8d"
     },
     {
       "path": "experiments/surface_research/boundary_study.py",
@@ -78,9 +90,9 @@
     },
     {
       "path": "experiments/surface_research/results/README.md",
-      "bytes": 4374,
-      "sha256": "1c0ac8cdb7cb6b84284e3a597d136badf66ebd70444391c36aa75b4735675d08",
-      "git_blob_sha": "51ed7294963bd98efc08c844f6ab37caaa427cd5"
+      "bytes": 4507,
+      "sha256": "bd7b93997a1c696837f7b276b12f9fa19cc4d820eb71cf7e313ec820206a3d21",
+      "git_blob_sha": "338852bba33729a266546ae89f6162fab6819864"
     },
     {
       "path": "experiments/surface_research/results/comparison_0625.png",
@@ -149,6 +161,162 @@
       "git_blob_sha": "bbf462a24b1fe6d3d9785df68b2b2b2281d0192f"
     },
     {
+      "path": "experiments/surface_research/results/right_boundary/README.md",
+      "bytes": 2463,
+      "sha256": "2aa0f669edbdad49764eb885c72977dea4f8dd09122ce47c8f6d79fbb11626dc",
+      "git_blob_sha": "68be794eec2ec5f0fc70467c9c792db46ae545f6"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/adaptive_validation.json",
+      "bytes": 16154,
+      "sha256": "7bce7bf170af6ec51eb0cf09fde39ef82b520fa67ebca9021cc8db359d32da6a",
+      "git_blob_sha": "d587d3f9743cb786058ed9c8a7341e7f6cce8580"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/corridor_0625.csv",
+      "bytes": 19879,
+      "sha256": "6b3290cecb04521d89312aab9985934aeb09598052bed4e5411104c79bc7e35a",
+      "git_blob_sha": "e63a9aa56f7d2f3607818a1a0b9a6a9ef08104cd"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/corridor_0750.csv",
+      "bytes": 19879,
+      "sha256": "4a41e0391488d3e6ded31980be95cc2f602670e3d23a0c9bc1e08c52e324a625",
+      "git_blob_sha": "33e9327409f70c85728b56b8569958f44d85bf6c"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/corridor_0875.csv",
+      "bytes": 19879,
+      "sha256": "0a685e035abaf614faaa88ad108638e18a8736d0a5045084bb07fe6559d1dff5",
+      "git_blob_sha": "4a6275c1612db6a9ce58ace1799d690c498ec7b4"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/corridor_0988.csv",
+      "bytes": 19879,
+      "sha256": "789501679d11fa2b6d0ca38354838debccdcc81cb6a8bffd77b84f8f8b4ae7c3",
+      "git_blob_sha": "49fe889e9eced7ece90db2e2f280dad368b7e1fa"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/diagnosis.json",
+      "bytes": 31004,
+      "sha256": "faf75123c62ffaba4f9479564403f78fc6ca7893d2fbe3b6a671ce3b59ab975c",
+      "git_blob_sha": "8b159226937a51772d9f4dd3113d869545efd2c4"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/diagnosis_0750.png",
+      "bytes": 579451,
+      "sha256": "97de581e49373bc8979bea89cc72d9c0b451e24f409785282ed393fb73161165",
+      "git_blob_sha": "99c61f0148ddb9b0eddf316303b0e8245057c5a9"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/metrics.json",
+      "bytes": 18988,
+      "sha256": "92a74e69f549a9954c44803bb676d0e01664f6cfc50814e4f315ccea98db23d1",
+      "git_blob_sha": "82f14b7239c0bb67cc1a746564cb9445e7112f60"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_multiscale_0625.csv",
+      "bytes": 27480,
+      "sha256": "8ec1ac00172152751230525d72962bb23f397e0943f1652c4b98dfce72766f69",
+      "git_blob_sha": "54ab493d648dcb492ee8d93e8538e65fe79dc58c"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_multiscale_0750.csv",
+      "bytes": 27779,
+      "sha256": "bba0ed4c76cc65f8c89391ab22f0377c0ca85eeb35948dea3b38b0441d8b23dd",
+      "git_blob_sha": "54ee305210f783a970096f2544b36bacfdcd4881"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_multiscale_0875.csv",
+      "bytes": 27693,
+      "sha256": "3d45dcd52f308e264420702559ce1407ad1d2e02e0f0a6e016dff89af0aed868",
+      "git_blob_sha": "a64a09a0e88554ce27e9ab2973c8ad266fa3d972"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_multiscale_0988.csv",
+      "bytes": 27577,
+      "sha256": "045a4ad084ac22fbb082aedf994cc7f748e2608af579089aa8e91d5d015f7959",
+      "git_blob_sha": "cb0d9904dfc8285dd8447c0d1e35515a34b5fcb0"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_0625.csv",
+      "bytes": 27471,
+      "sha256": "566f73b78a9980822090c57e885ba02c253002f6bab13874de8a88c66e84ccc4",
+      "git_blob_sha": "015408b6b19c65d5d147aaf3196166908fbe1b8e"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_0750.csv",
+      "bytes": 27785,
+      "sha256": "9d151daa4580c00dae076775c6ce1a4c23e99e759bf9fa59804e046ff28301fc",
+      "git_blob_sha": "2b881be6549480eb2862c93801bd41a7aac77b5b"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_0875.csv",
+      "bytes": 27693,
+      "sha256": "3d45dcd52f308e264420702559ce1407ad1d2e02e0f0a6e016dff89af0aed868",
+      "git_blob_sha": "a64a09a0e88554ce27e9ab2973c8ad266fa3d972"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_0988.csv",
+      "bytes": 27578,
+      "sha256": "7a4095e4de4813e6f3dbd619e25c16b2cb1caffc309c38747ec74e9f4e123dd9",
+      "git_blob_sha": "0f218d7481d0acd1eb806fb00a7da8c4b40336ff"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_clahe_0625.csv",
+      "bytes": 27432,
+      "sha256": "5651b8a4e74f43931fbff393124efbb51f05f1768c60cdbb8eca7629f724e589",
+      "git_blob_sha": "8dbbdbe85aa64c18f4f55f7bdecec9f6fc83ce01"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_clahe_0750.csv",
+      "bytes": 27730,
+      "sha256": "e98d557c557f8138a61373de098b1c97ab2e59b88b2b10cd595fa1dfadd1bd62",
+      "git_blob_sha": "0a8046774ba9938732c043c367b01aba7df207bd"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_clahe_0875.csv",
+      "bytes": 27694,
+      "sha256": "f8df7ef0bec8fcd39aa8d799951516e0e321b556ae18b7065465f51c9b8dd61a",
+      "git_blob_sha": "12b5872db00438d0b59797b011d0dd868239e16d"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/points_nlm_clahe_0988.csv",
+      "bytes": 27578,
+      "sha256": "3c0c0d3d8f9bef7d4ca8c830a6ee4ea102092ea0747dfa442353400ab6116173",
+      "git_blob_sha": "090800bf890757e433d45b65f403dd55dfd6c21e"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/proposal_validation.json",
+      "bytes": 262,
+      "sha256": "d1699a8f2d34e5cc2e7d573ebccd72e9f4ab83249c5855bb764537d44665df37",
+      "git_blob_sha": "216ba527b050a622719447a8a4dfdd6189bb7941"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/right_comparison_0625.png",
+      "bytes": 312427,
+      "sha256": "d3c0fe0b909de54934db1a6d3ee671881ffbb790eebdb807115bf95874e95b2a",
+      "git_blob_sha": "d6aa376e35c870c86e79191e07c758c3707c9a04"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/right_comparison_0750.png",
+      "bytes": 292084,
+      "sha256": "2162b8c20879b46b9dad90d1f1d6d9aa4423cb7feb0836372d184dd0076be8cc",
+      "git_blob_sha": "3471364191312d0ef8acca7eac162d128f904561"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/right_comparison_0875.png",
+      "bytes": 291224,
+      "sha256": "3418a290ec49b560c06a829976540fb02bad18a9f23e3030948355cf48b129b7",
+      "git_blob_sha": "714473e93ba435d7ed51278374c155007f211416"
+    },
+    {
+      "path": "experiments/surface_research/results/right_boundary/right_comparison_0988.png",
+      "bytes": 279970,
+      "sha256": "ab36232142468a50c3514e11a58102c6150aecf9e0006cc0637ada12ee72c9ce",
+      "git_blob_sha": "c3ec96dbf205296ea03295b01ddbfcfa1c2d7a8d"
+    },
+    {
       "path": "experiments/surface_research/results/smoothing_sensitivity_0750.json",
       "bytes": 1076,
       "sha256": "3b88e03da2062980653545f39710632ec448c331988f9ab0f5b673097104b409",
@@ -167,6 +335,18 @@
       "git_blob_sha": "2602d720f4601a2351cacce212f72b17e5121c08"
     },
     {
+      "path": "experiments/surface_research/right_boundary_study.py",
+      "bytes": 9881,
+      "sha256": "0be19fd354340d8566f7c73f34f3a27dbcbf717cdf7b0d8157f21024cdfc15bf",
+      "git_blob_sha": "b42e0fe959e79c81b5a3ae51843767b308f5126f"
+    },
+    {
+      "path": "experiments/surface_research/validate_adaptive_profile.py",
+      "bytes": 4853,
+      "sha256": "e22b430f24c8c6ba1cea57e092c7fa8f8392b42d48c830cf752062af3549f825",
+      "git_blob_sha": "65653eefe2054b7692a1413a8fe9b93ec2e89718"
+    },
+    {
       "path": "experiments/surface_research/validate_double_edge.py",
       "bytes": 4557,
       "sha256": "b7edffd0206d109d975e38b55ef732fb4e35d7905fd130b1205b7525fa9690f1",
@@ -177,6 +357,12 @@
       "bytes": 6330,
       "sha256": "8a335aad3ffd1bbbd12ad6b975822ebf9338e8f99c86bbaff681eeaa9561dbb4",
       "git_blob_sha": "489449f733e60010c3b36bca5cb3a77d8352cbe3"
+    },
+    {
+      "path": "experiments/surface_research/validate_right_proposals.py",
+      "bytes": 1660,
+      "sha256": "7a162ded9ce12a69409ebf1ea77e44ca26747955bd51862946646c0e6d56b124",
+      "git_blob_sha": "30b5c993047e68e046212341e68a772427356346"
     }
   ]
 }
