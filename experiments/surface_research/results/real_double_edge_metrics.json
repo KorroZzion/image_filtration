@@ -1,0 +1,486 @@
+{
+  "method": "shared-sigma double blurred-step fit",
+  "flag_definitions": {
+    "1": "insufficient_signal_or_no_opposing_edges",
+    "2": "optimizer_failed_or_nonfinite",
+    "4": "parameter_at_bound",
+    "8": "large_residual",
+    "16": "ill_conditioned_or_unidentifiable_positions",
+    "32": "edge_outside_observed_profile_or_no_background_plateau",
+    "64": "large_background_slope"
+  },
+  "limitations": "No ground truth, physical semantic labels, calibrated PSF, or uncertainty budget. Rejected candidates are not exported as measured surfaces.",
+  "records": [
+    {
+      "slice": 750,
+      "source_slices": [
+        742,
+        743,
+        744,
+        745,
+        746,
+        747,
+        748,
+        749,
+        750,
+        751,
+        752,
+        753,
+        754,
+        755,
+        756,
+        757,
+        758
+      ],
+      "box_y0_y1_x0_x1": [
+        444,
+        1385,
+        271,
+        713
+      ],
+      "total_single_step_candidates": 15121,
+      "single_step_opposing_flag_count": 2475,
+      "valid_opposing_profiles": 2475,
+      "profile_t_range_vox": [
+        -6,
+        6
+      ],
+      "profile_step_vox": 0.25,
+      "sample_max_per_polarity": 200,
+      "evaluations": [
+        {
+          "kind": "wall",
+          "polarity": 1,
+          "eligible_opposing_count": 1600,
+          "evaluated_count": 200,
+          "accepted_count": 3,
+          "rejection_share_evaluated": 0.985,
+          "accepted_width_vox": {
+            "min": 2.975487924113825,
+            "p25": 3.270513480282016,
+            "median": 3.565539036450207,
+            "p75": 3.8249367536724366,
+            "p95": 4.03245492745022,
+            "max": 4.0843344708946665
+          },
+          "accepted_sigma_vox": {
+            "min": 0.7517471012751527,
+            "p25": 0.9084830417495992,
+            "median": 1.0652189822240457,
+            "p75": 1.0773356959740048,
+            "p95": 1.087029066973972,
+            "max": 1.0894524097239637
+          },
+          "accepted_amplitude_u16": {
+            "min": 1066.3342399880287,
+            "p25": 1208.1975239633234,
+            "median": 1350.0608079386182,
+            "p75": 1407.1834040550325,
+            "p95": 1452.8814809481642,
+            "max": 1464.306000171447
+          },
+          "accepted_also_above_diagnostic_min_amplitude_count": 0,
+          "diagnostic_min_amplitude_normalized": 0.06,
+          "accepted_relative_rms": {
+            "min": 0.04125441462268405,
+            "p25": 0.043155025415822654,
+            "median": 0.04505563620896125,
+            "p75": 0.05625930672470274,
+            "p95": 0.06522224313729592,
+            "max": 0.06746297724044423
+          },
+          "accepted_rms_u16": {
+            "min": 60.40908686555695,
+            "p25": 60.618467744007816,
+            "median": 60.82784862245868,
+            "p75": 66.38296559273873,
+            "p95": 70.82705916896276,
+            "max": 71.93808256301877
+          },
+          "accepted_model_only_boundary_se_vox": {
+            "min": 0.10004912949139014,
+            "p25": 0.10479232078708345,
+            "median": 0.11513980562061339,
+            "p75": 0.13609523340578553,
+            "p95": 0.15013335373806022,
+            "max": 0.1525149370689841
+          },
+          "flag_counts_evaluated": {
+            "0": 3,
+            "9": 2,
+            "20": 2,
+            "21": 2,
+            "25": 7,
+            "32": 3,
+            "33": 1,
+            "36": 2,
+            "41": 1,
+            "48": 3,
+            "49": 5,
+            "50": 1,
+            "51": 1,
+            "52": 18,
+            "53": 54,
+            "57": 1,
+            "61": 7,
+            "64": 5,
+            "73": 5,
+            "80": 1,
+            "89": 27,
+            "93": 1,
+            "96": 5,
+            "113": 1,
+            "116": 10,
+            "117": 25,
+            "121": 4,
+            "125": 3
+          },
+          "flag_reason_counts_evaluated": {
+            "insufficient_signal_or_no_opposing_edges": 147,
+            "optimizer_failed_or_nonfinite": 2,
+            "parameter_at_bound": 124,
+            "large_residual": 58,
+            "ill_conditioned_or_unidentifiable_positions": 173,
+            "edge_outside_observed_profile_or_no_background_plateau": 145,
+            "large_background_slope": 87
+          }
+        },
+        {
+          "kind": "gap",
+          "polarity": -1,
+          "eligible_opposing_count": 1073,
+          "evaluated_count": 200,
+          "accepted_count": 4,
+          "rejection_share_evaluated": 0.98,
+          "accepted_width_vox": {
+            "min": 2.853990676889221,
+            "p25": 2.909164745141539,
+            "median": 3.238238446886469,
+            "p75": 3.567348938025363,
+            "p95": 3.6115764871727327,
+            "max": 3.622633374459575
+          },
+          "accepted_sigma_vox": {
+            "min": 0.8264378947733919,
+            "p25": 0.8451339749049918,
+            "median": 0.8591863566654008,
+            "p75": 0.9018453100444817,
+            "p95": 0.9854579460345739,
+            "max": 1.006361105032097
+          },
+          "accepted_amplitude_u16": {
+            "min": 1332.4597846729853,
+            "p25": 1356.4048943667287,
+            "median": 1521.036252739275,
+            "p75": 1684.0908584091967,
+            "p95": 1699.4627396778928,
+            "max": 1703.305709995067
+          },
+          "accepted_also_above_diagnostic_min_amplitude_count": 0,
+          "diagnostic_min_amplitude_normalized": 0.06,
+          "accepted_relative_rms": {
+            "min": 0.02924332987283665,
+            "p25": 0.052466848239152736,
+            "median": 0.06122136031492228,
+            "p75": 0.06309395923807427,
+            "p95": 0.06515618236484502,
+            "max": 0.0656717381465377
+          },
+          "accepted_rms_u16": {
+            "min": 38.965561025481,
+            "p25": 73.42553278816686,
+            "median": 93.73242802338139,
+            "p75": 104.45863691189282,
+            "p95": 109.03296708995407,
+            "max": 110.17654963446938
+          },
+          "accepted_model_only_boundary_se_vox": {
+            "min": 0.06856656693565844,
+            "p25": 0.09219132272043931,
+            "median": 0.13657134022337392,
+            "p75": 0.17557480627631558,
+            "p95": 0.17847594042553241,
+            "max": 0.1788709746960634
+          },
+          "flag_counts_evaluated": {
+            "0": 4,
+            "9": 10,
+            "20": 3,
+            "21": 2,
+            "25": 18,
+            "32": 3,
+            "33": 1,
+            "41": 1,
+            "48": 3,
+            "49": 7,
+            "52": 16,
+            "53": 29,
+            "57": 4,
+            "61": 2,
+            "64": 10,
+            "65": 2,
+            "73": 10,
+            "80": 2,
+            "81": 1,
+            "89": 28,
+            "96": 9,
+            "97": 1,
+            "100": 1,
+            "112": 6,
+            "113": 8,
+            "116": 2,
+            "117": 11,
+            "121": 4,
+            "125": 2
+          },
+          "flag_reason_counts_evaluated": {
+            "insufficient_signal_or_no_opposing_edges": 141,
+            "optimizer_failed_or_nonfinite": 0,
+            "parameter_at_bound": 68,
+            "large_residual": 79,
+            "ill_conditioned_or_unidentifiable_positions": 148,
+            "edge_outside_observed_profile_or_no_background_plateau": 110,
+            "large_background_slope": 97
+          }
+        }
+      ],
+      "note": "Isolated model candidates only; accepted does not establish a physical wall/gap or dimensional accuracy",
+      "elapsed_seconds": 10.656929625999965
+    },
+    {
+      "slice": 875,
+      "source_slices": [
+        867,
+        868,
+        869,
+        870,
+        871,
+        872,
+        873,
+        874,
+        875,
+        876,
+        877,
+        878,
+        879,
+        880,
+        881,
+        882,
+        883
+      ],
+      "box_y0_y1_x0_x1": [
+        454,
+        1384,
+        273,
+        714
+      ],
+      "total_single_step_candidates": 14301,
+      "single_step_opposing_flag_count": 1789,
+      "valid_opposing_profiles": 1789,
+      "profile_t_range_vox": [
+        -6,
+        6
+      ],
+      "profile_step_vox": 0.25,
+      "sample_max_per_polarity": 200,
+      "evaluations": [
+        {
+          "kind": "wall",
+          "polarity": 1,
+          "eligible_opposing_count": 1131,
+          "evaluated_count": 200,
+          "accepted_count": 1,
+          "rejection_share_evaluated": 0.995,
+          "accepted_width_vox": {
+            "min": 3.044837176435104,
+            "p25": 3.044837176435104,
+            "median": 3.044837176435104,
+            "p75": 3.044837176435104,
+            "p95": 3.044837176435104,
+            "max": 3.044837176435104
+          },
+          "accepted_sigma_vox": {
+            "min": 0.837005600859539,
+            "p25": 0.837005600859539,
+            "median": 0.837005600859539,
+            "p75": 0.837005600859539,
+            "p95": 0.837005600859539,
+            "max": 0.837005600859539
+          },
+          "accepted_amplitude_u16": {
+            "min": 1628.2702131186902,
+            "p25": 1628.2702131186902,
+            "median": 1628.2702131186902,
+            "p75": 1628.2702131186902,
+            "p95": 1628.2702131186902,
+            "max": 1628.2702131186902
+          },
+          "accepted_also_above_diagnostic_min_amplitude_count": 0,
+          "diagnostic_min_amplitude_normalized": 0.06,
+          "accepted_relative_rms": {
+            "min": 0.06732681248522226,
+            "p25": 0.06732681248522226,
+            "median": 0.06732681248522226,
+            "p75": 0.06732681248522226,
+            "p95": 0.06732681248522226,
+            "max": 0.06732681248522226
+          },
+          "accepted_rms_u16": {
+            "min": 109.62624331391496,
+            "p25": 109.62624331391496,
+            "median": 109.62624331391496,
+            "p75": 109.62624331391496,
+            "p95": 109.62624331391496,
+            "max": 109.62624331391496
+          },
+          "accepted_model_only_boundary_se_vox": {
+            "min": 0.1477358833456185,
+            "p25": 0.1484165573612186,
+            "median": 0.14909723137681868,
+            "p75": 0.14977790539241875,
+            "p95": 0.15032244460489882,
+            "max": 0.15045857940801885
+          },
+          "flag_counts_evaluated": {
+            "0": 1,
+            "18": 1,
+            "20": 1,
+            "21": 2,
+            "25": 4,
+            "32": 3,
+            "36": 1,
+            "48": 3,
+            "49": 12,
+            "52": 28,
+            "53": 63,
+            "57": 1,
+            "61": 5,
+            "64": 3,
+            "65": 1,
+            "73": 7,
+            "81": 1,
+            "89": 16,
+            "105": 1,
+            "113": 4,
+            "116": 12,
+            "117": 24,
+            "121": 3,
+            "125": 3
+          },
+          "flag_reason_counts_evaluated": {
+            "insufficient_signal_or_no_opposing_edges": 147,
+            "optimizer_failed_or_nonfinite": 1,
+            "parameter_at_bound": 139,
+            "large_residual": 40,
+            "ill_conditioned_or_unidentifiable_positions": 183,
+            "edge_outside_observed_profile_or_no_background_plateau": 163,
+            "large_background_slope": 75
+          }
+        },
+        {
+          "kind": "gap",
+          "polarity": -1,
+          "eligible_opposing_count": 649,
+          "evaluated_count": 200,
+          "accepted_count": 3,
+          "rejection_share_evaluated": 0.985,
+          "accepted_width_vox": {
+            "min": 3.120725698523958,
+            "p25": 3.1880920298134754,
+            "median": 3.2554583611029924,
+            "p75": 3.4038004899019576,
+            "p95": 3.5224741929411296,
+            "max": 3.552142618700923
+          },
+          "accepted_sigma_vox": {
+            "min": 0.8904241044214497,
+            "p25": 0.9321462552283402,
+            "median": 0.9738684060352307,
+            "p75": 1.0923363625333495,
+            "p95": 1.1871107277318445,
+            "max": 1.2108043190314681
+          },
+          "accepted_amplitude_u16": {
+            "min": 1459.1569913590076,
+            "p25": 1476.0161345694637,
+            "median": 1492.8752777799198,
+            "p75": 1682.2893801580612,
+            "p95": 1833.8206620605745,
+            "max": 1871.7034825362027
+          },
+          "accepted_also_above_diagnostic_min_amplitude_count": 0,
+          "diagnostic_min_amplitude_normalized": 0.06,
+          "accepted_relative_rms": {
+            "min": 0.01647317607622356,
+            "p25": 0.019086689555261306,
+            "median": 0.021700203034299047,
+            "p75": 0.027903194008543686,
+            "p95": 0.03286558678793939,
+            "max": 0.03410618498278832
+          },
+          "accepted_rms_u16": {
+            "min": 24.036950041509556,
+            "p25": 32.32664781627487,
+            "median": 40.616345591040194,
+            "p75": 45.76631298561682,
+            "p95": 49.88628690127812,
+            "max": 50.91628038019344
+          },
+          "accepted_model_only_boundary_se_vox": {
+            "min": 0.04139678275854041,
+            "p25": 0.051770074969081425,
+            "median": 0.081790037485168,
+            "p75": 0.14918218929689592,
+            "p95": 0.17876498347251948,
+            "max": 0.18129330431322643
+          },
+          "flag_counts_evaluated": {
+            "0": 3,
+            "9": 2,
+            "16": 2,
+            "20": 5,
+            "21": 9,
+            "25": 6,
+            "32": 3,
+            "33": 1,
+            "41": 1,
+            "48": 2,
+            "49": 7,
+            "52": 21,
+            "53": 32,
+            "57": 2,
+            "61": 4,
+            "64": 8,
+            "65": 1,
+            "72": 1,
+            "73": 13,
+            "80": 2,
+            "81": 1,
+            "89": 27,
+            "96": 5,
+            "97": 1,
+            "105": 3,
+            "109": 1,
+            "112": 3,
+            "113": 6,
+            "116": 3,
+            "117": 12,
+            "121": 11,
+            "125": 2
+          },
+          "flag_reason_counts_evaluated": {
+            "insufficient_signal_or_no_opposing_edges": 142,
+            "optimizer_failed_or_nonfinite": 0,
+            "parameter_at_bound": 89,
+            "large_residual": 73,
+            "ill_conditioned_or_unidentifiable_positions": 157,
+            "edge_outside_observed_profile_or_no_background_plateau": 120,
+            "large_background_slope": 100
+          }
+        }
+      ],
+      "note": "Isolated model candidates only; accepted does not establish a physical wall/gap or dimensional accuracy",
+      "elapsed_seconds": 9.26724474699995
+    }
+  ]
+}

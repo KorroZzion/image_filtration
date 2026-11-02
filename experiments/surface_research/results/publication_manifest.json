@@ -1,0 +1,182 @@
+{
+  "repository": "KorroZzion/image_filtration",
+  "base_commit": "3ed8fb62a7062dc99c32e65feeeb9feeda82dba1",
+  "unchanged_main_cpp_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+  "validation": "PNG readability, CSV counts and PLY vertex count agree with the recorded metrics; synthetic 7+8 case suites passed in the original run",
+  "files": [
+    {
+      "path": "experiments/surface_research/.gitignore",
+      "bytes": 23,
+      "sha256": "6feaded4e28ea86e001a6751b4e3d960e8b7c31b9616ff9936b79297086e809b",
+      "git_blob_sha": "43ae0e2a6c6d8fca34872506ca0f2e64194fec7c"
+    },
+    {
+      "path": "experiments/surface_research/README.md",
+      "bytes": 11358,
+      "sha256": "969adc2686b02d4226bd135ac32a9d686c9e37b6b87876d89eeb100cd43c728a",
+      "git_blob_sha": "da2879d2d0040c048adef3b8ccee8010f45dace1"
+    },
+    {
+      "path": "experiments/surface_research/RESEARCH.md",
+      "bytes": 18588,
+      "sha256": "8a6c57a982c2b5cb671ed9d080f154c6042c1f5194f54dcd9024b249306bef8d",
+      "git_blob_sha": "ac9e4a2f58e146f88f0f5c91b24218b991933ffc"
+    },
+    {
+      "path": "experiments/surface_research/boundary_study.py",
+      "bytes": 20564,
+      "sha256": "9cf6d1c78e19096f38e5aaef334cb95c0167570a273a45cbc328b797afed0afd",
+      "git_blob_sha": "c11f9b39d022b4f2281d76ea74a16712b539b679"
+    },
+    {
+      "path": "experiments/surface_research/direct_surface_study.py",
+      "bytes": 8705,
+      "sha256": "e4c61ab915bfa24e2d82e599bb807d91bef3b9cbea0ccabc1bf4b19731852064",
+      "git_blob_sha": "4339be6709946e29f98d364427946fa0ead276ae"
+    },
+    {
+      "path": "experiments/surface_research/double_edge_fit.py",
+      "bytes": 10425,
+      "sha256": "6adba92aed2e64d97271db80eb5ef2bcace65ffa10bd0441510df104f8200fa3",
+      "git_blob_sha": "2189011258ba5559b66d67e480e9bb91c95f4317"
+    },
+    {
+      "path": "experiments/surface_research/edge_seed_study.py",
+      "bytes": 9022,
+      "sha256": "3b5dc83836ef6ed80f0c30add76d9993c8b2a6c5bc88f158928a9cd0e614ea72",
+      "git_blob_sha": "ea168a51ca5ef05a37b730b8edbe4d9e1c860aab"
+    },
+    {
+      "path": "experiments/surface_research/envelope_method.py",
+      "bytes": 2753,
+      "sha256": "7f9c7d72ef6c68c93b3b4e97c86d03ae908e502df41c0d369733af8315dbf465",
+      "git_blob_sha": "47822a05c3c446e0540021d77f7bafb2e614ff69"
+    },
+    {
+      "path": "experiments/surface_research/prepare_cpp_baseline.py",
+      "bytes": 6390,
+      "sha256": "09a7c0ce0ebe80a3a64d2717a53f4611bdfde17622934be2d932a8a0f8d357ba",
+      "git_blob_sha": "f14140d108b9b1ec3153b303f905d2061aa3e745"
+    },
+    {
+      "path": "experiments/surface_research/profile_refinement.py",
+      "bytes": 14987,
+      "sha256": "ce8786619ab37e5102ec012eac751e59a8010f656eb45a8970d3b403f6735264",
+      "git_blob_sha": "16214614fda3fe85f0a0c08f12febb6535eaafb9"
+    },
+    {
+      "path": "experiments/surface_research/real_double_profiles.py",
+      "bytes": 12508,
+      "sha256": "4161b7bebf0f17190315595d24a7ed84ee8ab70045a4acbcd380bc9152098c65",
+      "git_blob_sha": "ba046cac2ab517b3864c6afd1bae6438cfbcfdf7"
+    },
+    {
+      "path": "experiments/surface_research/requirements.txt",
+      "bytes": 69,
+      "sha256": "e2393b0768f439ac8b3952bf08b4afd772f4e6ea763faaa454c4a7fbca6c0979",
+      "git_blob_sha": "1d20ab898b4948f9c7210a413e13391a8675e2aa"
+    },
+    {
+      "path": "experiments/surface_research/results/README.md",
+      "bytes": 4374,
+      "sha256": "1c0ac8cdb7cb6b84284e3a597d136badf66ebd70444391c36aa75b4735675d08",
+      "git_blob_sha": "51ed7294963bd98efc08c844f6ab37caaa427cd5"
+    },
+    {
+      "path": "experiments/surface_research/results/comparison_0625.png",
+      "bytes": 1087697,
+      "sha256": "ba85a3a3eb2a71315abfaac24ec56b6ea774123d80d6136f9793d6214ad2e488",
+      "git_blob_sha": "bcb57cc061d144b7f05c4ac35259464afa152f6a"
+    },
+    {
+      "path": "experiments/surface_research/results/comparison_0750.png",
+      "bytes": 765132,
+      "sha256": "c5acede357f627d650e182c962e793ea9813b60c40d1e87c6b339414f2d7c6ec",
+      "git_blob_sha": "4290f2bc8ab7b574e90fd3330b4c0ebba6d7bf02"
+    },
+    {
+      "path": "experiments/surface_research/results/comparison_0875.png",
+      "bytes": 733330,
+      "sha256": "72c16495757f75d2af30b724c3e268fa510706b3aeb2f137069533188bb0cb17",
+      "git_blob_sha": "12a068be94557a1bf5bd25936b3ba28e1c59de21"
+    },
+    {
+      "path": "experiments/surface_research/results/comparison_0988.png",
+      "bytes": 697345,
+      "sha256": "f351b54ebf68ddef5816494d112052bb6e3702fc2d493fb3a2c06c0cf83fa828",
+      "git_blob_sha": "504cf66a2ec37339cd6e5c4fffa45d6bc8a11209"
+    },
+    {
+      "path": "experiments/surface_research/results/cpp_baseline_provenance.json",
+      "bytes": 1010,
+      "sha256": "e57d2b7148a7ae96cde892b42fbc7908354923ab6f2ef13b45d563a655ca4a64",
+      "git_blob_sha": "779333289d64de59a62ef1e2a4edd6b99369bbfc"
+    },
+    {
+      "path": "experiments/surface_research/results/cpp_baseline_validation.json",
+      "bytes": 8498,
+      "sha256": "1a69a0c92b5ebb62de4e3898ad5f0a8a1447fc69bab42accebb84c02b8b2b2df",
+      "git_blob_sha": "9eca8cbdf7b600284cb2287296e086d78d69a49a"
+    },
+    {
+      "path": "experiments/surface_research/results/double_profiles_0750.png",
+      "bytes": 568017,
+      "sha256": "4e5280e64da675c300f9ae74be1bad388456cb50d5c45179d843104f5861abc5",
+      "git_blob_sha": "0d684a22040e82d71b551066209adb293e0e4631"
+    },
+    {
+      "path": "experiments/surface_research/results/erf_points_0750.ply",
+      "bytes": 126666,
+      "sha256": "8c028bf837fb3f97ac0d2330436d9b3ea6775326c7887d61977e7f8fd23d7fae",
+      "git_blob_sha": "67d5be182f2c8a5ddbd8e5af0b3388637e182b1d"
+    },
+    {
+      "path": "experiments/surface_research/results/points_0750.csv.gz",
+      "bytes": 1135577,
+      "sha256": "3464bb544dd498b024cbe74d5d0bc4aea839b7448ada1de6d851783fa83c8728",
+      "git_blob_sha": "a79d137158692fcd94ecea8638f7f9e35f831e6d"
+    },
+    {
+      "path": "experiments/surface_research/results/real_double_edge_metrics.json",
+      "bytes": 14801,
+      "sha256": "63c80b46c0b43cfa15c9454f522bd53e88f4108b1d80b25c93bdc80505ad4b69",
+      "git_blob_sha": "945bc12953c83af7d5eacd5e485c5a886a8579ac"
+    },
+    {
+      "path": "experiments/surface_research/results/real_profile_metrics.json",
+      "bytes": 13870,
+      "sha256": "d3504762ebeb76e9b66fb23ab48b6c42c576a54d4250a808e107c022d9dd105a",
+      "git_blob_sha": "bbf462a24b1fe6d3d9785df68b2b2b2281d0192f"
+    },
+    {
+      "path": "experiments/surface_research/results/smoothing_sensitivity_0750.json",
+      "bytes": 1076,
+      "sha256": "3b88e03da2062980653545f39710632ec448c331988f9ab0f5b673097104b409",
+      "git_blob_sha": "774e0c12f5527ff2666bf9dae37a4d5ea74a4a36"
+    },
+    {
+      "path": "experiments/surface_research/results/synthetic_double_edge_validation.json",
+      "bytes": 5841,
+      "sha256": "f4e000a9f14fdcf51110d90585990ee3996bae1eb92399ded7ae8b480968ae46",
+      "git_blob_sha": "59db6fdda792a94d9732f42f46ec0072f69d345c"
+    },
+    {
+      "path": "experiments/surface_research/results/synthetic_single_edge_validation.json",
+      "bytes": 9102,
+      "sha256": "8793c1157c7ea3c0eb234de6cf7895b5db90836c663e3ee9b625a5efb0847dae",
+      "git_blob_sha": "2602d720f4601a2351cacce212f72b17e5121c08"
+    },
+    {
+      "path": "experiments/surface_research/validate_double_edge.py",
+      "bytes": 4557,
+      "sha256": "b7edffd0206d109d975e38b55ef732fb4e35d7905fd130b1205b7525fa9690f1",
+      "git_blob_sha": "e1d233619ff9137678f1249956d88355fd07096b"
+    },
+    {
+      "path": "experiments/surface_research/validate_profiles.py",
+      "bytes": 6330,
+      "sha256": "8a335aad3ffd1bbbd12ad6b975822ebf9338e8f99c86bbaff681eeaa9561dbb4",
+      "git_blob_sha": "489449f733e60010c3b36bca5cb3a77d8352cbe3"
+    }
+  ]
+}

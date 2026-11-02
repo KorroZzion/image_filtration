@@ -1,0 +1,306 @@
+[
+  {
+    "source_slice": 750,
+    "source_file": "img_0750.tif",
+    "center_array_index": 250,
+    "source_first": 742,
+    "source_last": 758,
+    "window_truncated_at_data_start": false,
+    "wall_seconds": 54.738,
+    "returncode": 0,
+    "source_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+    "adapter_sha256": "43e82864997233fb3e4c94c7af231bc729f11d42f536f1e093d7553be0d83cbc",
+    "command": [
+      "/workspace/work/ct_research/cpp_baseline/baseline_runtime",
+      "/workspace/image_filtration/CT_Test",
+      "/workspace/work/ct_research/cpp_baseline/750",
+      "242",
+      "250",
+      "258"
+    ],
+    "masks": {
+      "standard": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 5956,
+        "sha256": "a6acba287e64ba75e8342018e9e7835ee47cd548ccb51f325b00d496fac60132",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "adaptive": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 6651,
+        "sha256": "86f8b8ee181ca07d471301cf65ef9799490973cd34b54ba5b8815a34dab696b0",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "phase": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 10032,
+        "sha256": "2500f0f2ce5a3ee3eb14cc1d6b7eeed53c6e433ea86bad1794cd662a42b39e6a",
+        "binary_values": [
+          0,
+          255
+        ]
+      }
+    },
+    "report_center_row": "250,5956,6651,10032,0.895504435,0.047843754,0.046809312,0.000345762",
+    "center_is_3d_nms_boundary": false,
+    "usable_for_3d_canny_comparison": true
+  },
+  {
+    "source_slice": 625,
+    "source_file": "img_0625.tif",
+    "center_array_index": 125,
+    "source_first": 617,
+    "source_last": 633,
+    "window_truncated_at_data_start": false,
+    "wall_seconds": 56.032,
+    "returncode": 0,
+    "source_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+    "adapter_sha256": "43e82864997233fb3e4c94c7af231bc729f11d42f536f1e093d7553be0d83cbc",
+    "command": [
+      "/workspace/work/ct_research/cpp_baseline/baseline_runtime",
+      "/workspace/image_filtration/CT_Test",
+      "/workspace/work/ct_research/cpp_baseline/625",
+      "117",
+      "125",
+      "133"
+    ],
+    "masks": {
+      "standard": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 8712,
+        "sha256": "7ac759b90ff8a979a4708ba7deb1123c89a2bcac015fb08f5c8f32190b195b81",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "adaptive": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 8351,
+        "sha256": "0b69a4c33c7a566eaa4a364bccf50c4cf2dbc5419136d37d2bb9a5c019069bc6",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "phase": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 22045,
+        "sha256": "93165f21e0564abdacfd70006e1bb4e4ad4da1f2bd071515cee7644b23c26774",
+        "binary_values": [
+          0,
+          255
+        ]
+      }
+    },
+    "report_center_row": "125,8712,8351,22045,0.954524628,0.021080938,0.021302332,0.000504289",
+    "center_is_3d_nms_boundary": false,
+    "usable_for_3d_canny_comparison": true
+  },
+  {
+    "source_slice": 875,
+    "source_file": "img_0875.tif",
+    "center_array_index": 375,
+    "source_first": 867,
+    "source_last": 883,
+    "window_truncated_at_data_start": false,
+    "wall_seconds": 48.053,
+    "returncode": 0,
+    "source_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+    "adapter_sha256": "43e82864997233fb3e4c94c7af231bc729f11d42f536f1e093d7553be0d83cbc",
+    "command": [
+      "/workspace/work/ct_research/cpp_baseline/baseline_runtime",
+      "/workspace/image_filtration/CT_Test",
+      "/workspace/work/ct_research/cpp_baseline/875",
+      "367",
+      "375",
+      "383"
+    ],
+    "masks": {
+      "standard": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 5873,
+        "sha256": "904824e9b9a664dc1cde656daba6ab0ab394811cd39d11e3b188d7adeefc5daa",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "adaptive": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 6587,
+        "sha256": "8083f4deb5956464e0a308022765da47cc7364e45e64565a7e4746dee51e6bcb",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "phase": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 7873,
+        "sha256": "7999f5f3545bef47e981a009155c2daa14e9ed31fd368540110cf7fd040065a3",
+        "binary_values": [
+          0,
+          255
+        ]
+      }
+    },
+    "report_center_row": "375,5873,6587,7873,0.891604676,0.046437272,0.044495810,0.000338363",
+    "center_is_3d_nms_boundary": false,
+    "usable_for_3d_canny_comparison": true
+  },
+  {
+    "source_slice": 500,
+    "source_file": "img_0500.tif",
+    "center_array_index": 0,
+    "source_first": 500,
+    "source_last": 508,
+    "window_truncated_at_data_start": true,
+    "wall_seconds": 35.129,
+    "returncode": 0,
+    "source_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+    "adapter_sha256": "43e82864997233fb3e4c94c7af231bc729f11d42f536f1e093d7553be0d83cbc",
+    "command": [
+      "/workspace/work/ct_research/cpp_baseline/baseline_runtime",
+      "/workspace/image_filtration/CT_Test",
+      "/workspace/work/ct_research/cpp_baseline/500",
+      "0",
+      "0",
+      "8"
+    ],
+    "masks": {
+      "standard": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 0,
+        "sha256": "b0ba854d0865393241c463fdd19364415d7be12e407f624503a508a68efff0f2",
+        "binary_values": [
+          0
+        ]
+      },
+      "adaptive": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 0,
+        "sha256": "b0ba854d0865393241c463fdd19364415d7be12e407f624503a508a68efff0f2",
+        "binary_values": [
+          0
+        ]
+      },
+      "phase": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 36100,
+        "sha256": "990112d8bdf66f195da5c6edf78c9d7a02e1859b89c05153ddf27794f76ae755",
+        "binary_values": [
+          0,
+          255
+        ]
+      }
+    },
+    "report_center_row": "0,0,0,36100,1.000000000,0.000000000,0.000000000,0.000794770",
+    "center_is_3d_nms_boundary": true,
+    "usable_for_3d_canny_comparison": false,
+    "comparison_limitation": "Source img_0500 is the first available volume plane. Original computeNMS3D iterates z=1..depth-2, therefore z=0 Canny masks are necessarily empty. Report as N/A rather than detector failure; phase remains 2D-based."
+  },
+  {
+    "source_slice": 988,
+    "source_file": "img_0988.tif",
+    "center_array_index": 488,
+    "source_first": 980,
+    "source_last": 996,
+    "window_truncated_at_data_start": false,
+    "center_is_3d_nms_boundary": false,
+    "usable_for_3d_canny_comparison": true,
+    "wall_seconds": 46.951,
+    "returncode": 0,
+    "source_sha256": "f0dd63dce5a4b6fb1e234ef7608a49852a9d661755fa2e1311af4b325ccf3b37",
+    "adapter_sha256": "43e82864997233fb3e4c94c7af231bc729f11d42f536f1e093d7553be0d83cbc",
+    "command": [
+      "/workspace/work/ct_research/cpp_baseline/baseline_runtime",
+      "/workspace/image_filtration/CT_Test",
+      "/workspace/work/ct_research/cpp_baseline/988",
+      "480",
+      "488",
+      "496"
+    ],
+    "masks": {
+      "standard": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 5910,
+        "sha256": "3408b7c9089a1bdf5da3860057a8581de6a97a365348c8f74175ee0c9eb7d563",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "adaptive": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 6810,
+        "sha256": "cdecbeac72a51372efd9051a7d2e904c69f77dafe103eb0e8b3b1757c31aca27",
+        "binary_values": [
+          0,
+          255
+        ]
+      },
+      "phase": {
+        "shape_yx": [
+          1804,
+          910
+        ],
+        "edge_pixels": 6817,
+        "sha256": "27a9f18b6d8ba89cf689015a977df38f670276dee4604a56a1d97ec4172876c8",
+        "binary_values": [
+          0,
+          255
+        ]
+      }
+    },
+    "report_center_row": "488,5910,6810,6817,0.867841410,0.045424676,0.043574820,0.000298574"
+  }
+]
